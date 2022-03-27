@@ -5,7 +5,9 @@ Write-Host $0
 
 $sharedMainItems = Join-Path -Path $location "shared\*"
 
+# go up by 2 folders
 $basePath = (Split-Path -Path $location -Parent)
+$basePath = (Split-Path -Path $basePath -Parent)
 
 # get smc repos
 $repos = Get-ChildItem -Path $basePath -Directory -Name "smc_*"
