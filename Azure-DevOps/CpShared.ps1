@@ -1,8 +1,6 @@
 # where are we?
 [string]$location = Get-Location
 
-Write-Host $0
-
 $sharedMainItems = Join-Path -Path $location "shared\*"
 
 # go up by 2 folders
