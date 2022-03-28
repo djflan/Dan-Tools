@@ -1,3 +1,0 @@
-variables:
-- name: SmcBuildTeamsUrl
-  value: 'https://revspringinc.webhook.office.com/webhookb2/07747758-545d-4257-b5f1-282351af39c0@0c7b2a3d-9015-4503-80e7-5c617cbf7d55/IncomingWebhook/950a309a9291456f8b253744fe06e50f/b4a6a5f6-c80f-45da-972e-189bd8d64876'
