@@ -17,13 +17,15 @@ foreach($repo in $repos)
 
     if ($branch -eq "azure-pipelines") 
 	{
-        Write-Host "Commit to $azdoShared"
-        Invoke-Expression "git add ."
-        Invoke-Expression -Command "git commit -m ""Updated Azure Pipelines"""
-        Invoke-Expression -Command "git push"
+        write-host "[$repo]`r`n`ttrying commit and push."
+        invoke-expression "git add ."
+        invoke-expression -command "git commit -m ""updated azure pipelines"""
+        invoke-expression -command "git push"
 	}		
     else
 	{
-        Write-Host "not on azure pipelines branch"
+        Write-Host "[$repo]`r`n`tNot on azure pipelines branch."
     }
 }
+
+Invoke-Expression -Command "cd ""$location"""
