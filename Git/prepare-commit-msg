@@ -1,0 +1,4 @@
+#!/bin/sh
+echo 
+exec powershell.exe -ExecutionPolicy RemoteSigned -File '.\.git\hooks\prepare-commit-msg.ps1' $1 $2 $3
+exit
