@@ -1,10 +1,9 @@
 # Class for NuGet-Generated projects
 class NuGetProject {
-    [string] $OwnerRepository
-    [string] $ProjectFile
+    # [string] $OwnerRepository
+    # [string] $ProjectFile
     [string] $PackageId
     [string] $PackageVersion
-    [string] $ReplacementName
 }
 
 # All nuget projects
@@ -13,7 +12,7 @@ $nugetProjects = [System.Collections.ArrayList]::new()
 # should check for existing manifest and add to update a single one
 
 # Get all csproj files recursively
-$projects = Get-ChildItem -Path "*.csproj" -Recurse #"test/*.csproj" #"*.csproj" -Recurse 
+$projects = (Get-ChildItem -Path "*.csproj" -Recurse) #"test/*.csproj" #"*.csproj" -Recurse 
 
 ForEach ($csProject in $projects) {
     $projectXml = [xml] (Get-Content -Path $csProject)
@@ -25,25 +24,23 @@ ForEach ($csProject in $projects) {
         $isPackableNodes = (Select-Xml $projectXml -XPath "//PropertyGroup/IsPackable") 
         $isPackableNode = if ($isPackableNodes.Length -eq 1) { $isPackableNodes[0]} else { "False"}
 
-        $versionNode = (Select-Xml $projectXml -XPath "/PropertyGroup/Version") # Fix this stupid, broken thing !!!!
+        $versionNode = (Select-Xml $projectXml -XPath "/Project/PropertyGroup/Version") ?? ""
+        $idNode = (Select-Xml $projectXml -XPath "/Project/PropertyGroup/PackageId") ?? ""
 
-
-        Write-Host $versionNode
+        #Write-Host $versionNode
 
         if ($isPackableNode.ToString() -eq "True") { 
 
             $nugetProject = [NuGetProject]::new()
-            $nugetProject.OwnerRepository = "some repo"
-            $nugetProject.ProjectFile = $csProject
-            $nugetProject.PackageId = "x"
-            $nugetProject.PackageVersion = "1.0.0"
+            # $nugetProject.OwnerRepository = "some repo"
+            # $nugetProject.ProjectFile = $csProject
+            $nugetProject.PackageId = $idNode
+            $nugetProject.PackageVersion = $versionNode
 
-            $nugetProjects.Add($nugetProject)
+            [void]$nugetProjects.Add($nugetProject)
         }
     }
 }
 
-ForEach ($n in $nugetProjects) {
-    Write-Output "$($n.OwnerRepository)|$($n.ProjectFile)|$($n.PackageVersion)"
-}
+$nugetProjects | Out-File "nuget.manifest" -Append
 
