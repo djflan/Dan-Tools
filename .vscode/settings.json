@@ -1,0 +1,20 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "/c:/revspring-tech/smc_pa-framework/PatientAccess": true,
+        "/c:/revspring-tech/smc_pa-framework/.editorconfig": true,
+        "/c:/revspring-tech/smc_pa-framework/.gitattributes": true,
+        "/c:/revspring-tech/smc_pa-framework/.gitignore": true,
+        "/c:/revspring-tech/smc_pa-framework/Directory.Build.props": true,
+        "/c:/revspring-tech/smc_pa-framework/Directory.Build.targets": true,
+        "/c:/revspring-tech/smc_pa-framework/jenkins.pipeline": true,
+        "/c:/revspring-tech/smc_pa-framework/pa-framework.MSBuild": true,
+        "/c:/revspring-tech/smc_pa-framework/pa-framework.nunit": true,
+        "/c:/revspring-tech/smc_PatientAccess-Taurus-Contracts/src": true
+    }
+}
