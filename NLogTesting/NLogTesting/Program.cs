@@ -9,11 +9,13 @@ namespace NLogTesting
 {
     internal class Program
     {
-        private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger("apiContentLog");
+        private const string LoggerName = "apiContentLog";
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(LoggerName);
 
         private static void Main()
         {
-            Logger.Info("testing");
+            var x = NLog.LogManager.Configuration;
+            Logger.Log(new LogEventInfo(LogLevel.Debug, LoggerName, "test"));
         }
     }
 }
