@@ -9,7 +9,7 @@ namespace NLogTesting
 {
     internal class Program
     {
-        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger("apiContentLog");
 
         private static void Main()
         {
