@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32421.90
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NLogTesting", "NLogTesting\NLogTesting.csproj", "{B3D8D678-6FAA-455B-BCB1-C87D94EE43A5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B3D8D678-6FAA-455B-BCB1-C87D94EE43A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B3D8D678-6FAA-455B-BCB1-C87D94EE43A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3D8D678-6FAA-455B-BCB1-C87D94EE43A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B3D8D678-6FAA-455B-BCB1-C87D94EE43A5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2893437B-562F-40B4-B81D-8737B2D92C11}
+	EndGlobalSection
+EndGlobal

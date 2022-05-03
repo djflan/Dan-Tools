@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\revspring-tech\\Dan-Tools\\NLogTesting\\NLogTesting\\NLogTesting.csproj": {}
+  },
+  "projects": {
+    "C:\\revspring-tech\\Dan-Tools\\NLogTesting\\NLogTesting\\NLogTesting.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\revspring-tech\\Dan-Tools\\NLogTesting\\NLogTesting\\NLogTesting.csproj",
+        "projectName": "NLogTesting",
+        "projectPath": "C:\\revspring-tech\\Dan-Tools\\NLogTesting\\NLogTesting\\NLogTesting.csproj",
+        "packagesPath": "C:\\Users\\dflanigan\\.nuget\\packages\\",
+        "outputPath": "C:\\revspring-tech\\Dan-Tools\\NLogTesting\\NLogTesting\\obj\\",
+        "projectStyle": "PackageReference",
+        "skipContentFileWrite": true,
+        "configFilePaths": [
+          "C:\\Users\\dflanigan\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net462"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "http://apextfs01:8080/tfs/DefaultCollection/_packaging/AriaPackages/nuget/v3/index.json": {},
+          "https://api.nuget.org/v3/index.json": {},
+          "https://pkgs.dev.azure.com/RevSpring-PA/_packaging/RevSpring-PA/nuget/v3/index.json": {}
+        },
+        "frameworks": {
+          "net462": {
+            "projectReferences": {}
+          }
+        }
+      },
+      "frameworks": {
+        "net462": {
+          "dependencies": {
+            "NLog": {
+              "target": "Package",
+              "version": "[4.2.3, )"
+            }
+          }
+        }
+      },
+      "runtimes": {
+        "win": {
+          "#import": []
+        },
+        "win-x64": {
+          "#import": []
+        },
+        "win-x86": {
+          "#import": []
+        }
+      }
+    }
+  }
+}

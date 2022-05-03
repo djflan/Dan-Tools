@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "G/U6/7hW4jxtnxAa9Yogd13X3kLOZcr22hk9NEE2oT3e4YBp6738kokeItdb3vCSssgExU1iZXYP3LnwshyDig==",
+  "success": true,
+  "projectFilePath": "C:\\revspring-tech\\Dan-Tools\\NLogTesting\\NLogTesting\\NLogTesting.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\dflanigan\\.nuget\\packages\\nlog\\4.2.3\\nlog.4.2.3.nupkg.sha512"
+  ],
+  "logs": []
+}
