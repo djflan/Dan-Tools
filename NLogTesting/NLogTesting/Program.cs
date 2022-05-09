@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NLog;
+﻿using NLog;
 
 namespace NLogTesting
 {
@@ -14,7 +9,7 @@ namespace NLogTesting
 
         private static void Main()
         {
-            Log("My name is Dan Flanigan.");
+            Log("Basic text logging");
         }
 
         private static void Log(string message)

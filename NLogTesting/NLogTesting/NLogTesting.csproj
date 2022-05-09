@@ -51,6 +51,9 @@
     <None Include="NLog.config" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>6.0.8</Version>
+    </PackageReference>
     <PackageReference Include="NLog">
       <Version>4.2.3</Version>
     </PackageReference>
