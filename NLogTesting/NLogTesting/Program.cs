@@ -16,6 +16,7 @@ namespace NLogTesting
 
         private static async Task Main()
         {
+            // todo: Data should ba a JSON encoded string
             var data = "data";
 
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(data));
