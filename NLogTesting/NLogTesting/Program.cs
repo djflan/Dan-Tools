@@ -3,8 +3,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Internal;
-using Moq;
+using Newtonsoft.Json;
 using NLog;
 
 namespace NLogTesting
@@ -12,14 +11,49 @@ namespace NLogTesting
     internal class Program
     {
         private const string LoggerName = "PatientAccessApiContent";
-        private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(LoggerName);
+        private static readonly Logger Logger = LogManager.GetLogger(LoggerName);
 
         private static async Task Main()
         {
-            // todo: Data should ba a JSON encoded string
-            var data = "data";
+            int classIndex = 1;
 
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(data));
+            var dansTinyClass = new DansTinySerializableClass
+            {
+                Name = $"{classIndex}",
+                Time = DateTime.Now,
+                Data = "Some important data."
+            };
+
+            DansTinySerializableClass final = null;
+
+            for (var i = 0; i < 2; i++)
+            {
+                classIndex++;
+
+                final = new DansTinySerializableClass
+                {
+                    Name = $"{classIndex}",
+                    Time = DateTime.Now,
+                    Data = JsonConvert.SerializeObject(dansTinyClass)
+                };
+
+                dansTinyClass = final;
+            }
+
+            await SerializeLogAsync(final);
+        }
+
+        private static async Task SerializeLogAsync(DansTinySerializableClass serializabeObject)
+        {
+            var dansTinyJson = JsonConvert.SerializeObject(serializabeObject);
+            var httpContext = CreateContext(dansTinyJson);
+
+            await LogAsync(httpContext.Request);
+        }
+
+        private static DefaultHttpContext CreateContext(string jsonEncodedString)
+        {
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(jsonEncodedString));
 
             var httpContext = new DefaultHttpContext
             {
@@ -29,8 +63,7 @@ namespace NLogTesting
                     ContentLength = stream.Length
                 }
             };
-
-            await LogAsync(httpContext.Request);
+            return httpContext;
         }
 
         private static async Task LogAsync(HttpRequest request)
