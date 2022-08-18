@@ -7,7 +7,7 @@
         {
           "foreground": "#7eb8da",
           "style": "plain",
-          "template": "\u250f<#ffffff>\uf508</> {{ .UserName }} @ <#ffffff>\ufcbe</> {{ .HostName }}",
+          "template": "\u2320 <#ffffff>\uf508</> {{ .UserName }} @ <#ffffff>\ufcbe</> {{ .HostName }}",
           "type": "session"
         },
         {
@@ -91,7 +91,7 @@
             "style": "full"
           },
           "style": "plain",
-          "template": "\u2516\ue5ff <#98bfad>{{ .Path }}</>",
+          "template": "\u23ad \ue5ff <#98bfad>{{ .Path }}</>",
           "type": "path"
         }
       ],
@@ -102,9 +102,9 @@
       "newline": true,
       "segments": [
         {
-          "foreground": "#7eb8da",
+          "foreground": "#7E96DA",
           "style": "plain",
-          "template": "\u2514\u2500\ue285",
+          "template": " ",
           "type": "text"
         }
       ],
