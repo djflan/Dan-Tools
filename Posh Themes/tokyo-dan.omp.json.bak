@@ -59,7 +59,7 @@
           "type": "kubectl"
         },
         {
-          "foreground": "#ffa5ab",
+          "foreground": "#ffa5d8",
           "style": "powerline",
           "template": " [<#ffffff>\ufc8d</> Error - check your command]",
           "type": "exit"
