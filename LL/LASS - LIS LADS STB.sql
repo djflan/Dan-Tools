@@ -118,28 +118,43 @@ BEGIN
         IsActive
     )
     VALUES
-    (NEWID(), 3111640, 1, 'NCOA', 17, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111641, 1, 'Postage', 20, 'FR020100', 'Postage', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111637, 1, 'Additional Pages', 13, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111640, 1, 'NCOA', 17, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111641, 1, 'Postage', 20, 'FR020100', 'Postage', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111637, 1, 'Additional Pages', 13, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
     (NEWID(), 3111643, 1, 'ReturnLogic', 29, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111636, 1, 'Lettershop', 31, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111638, 1, 'Inserts', 2, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111639, 1, 'Duplex Fee', 9, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111636, 1, 'Lettershop', 31, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111638, 1, 'Inserts', 2, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111639, 1, 'Duplex Fee', 9, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
     (NEWID(), 3111642, 1, 'ReturnLogic', 32, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1)
 END
 
-SELECT COUNT(distinct lbabcd.BillingActivityBatchCategoryDetailId), lstb.InvoiceLineItemKey, lstb.InvoiceLineItemGroupKey, lstb.LineItemKey, lili.InvoiceLineItemKey
+SELECT 
+--COUNT(distinct lbabcd.BillingActivityBatchCategoryDetailId), 
+SUM (lbabc.BillingActivityBatchTotal),
+SUM(lbabc.TotalSuppressed),
+SUM(lbabc.TotalUpdated),
+SUM (lbabc.TotalReturned),
+    lstb.InvoiceLineItemKey,
+    lstb.InvoiceLineItemGroupKey,
+    lstb.LineItemKey,
+    lili.InvoiceLineItemKey
 FROM @LassSalesTaxBatches lstb
     INNER JOIN LASS_InvoiceLineItems lili (NOLOCK)
         ON lili.InvoiceLineItemKey = lstb.InvoiceLineItemKey
-    INNER JOIN LASS_ClientLineItems lcli (NOLOCK)
-        ON lili.LineItemKey = lcli.LineItemKey
+    -- INNER JOIN LASS_ClientLineItems lcli (NOLOCK)
+    --     ON lili.LineItemKey = lcli.LineItemKey
     INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
         ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
-    INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
-        ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
-        AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+    -- INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+    --     ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+    --     AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+    INNER JOIN LASS_BillingActivityBatchCategories lbabc (NOLOCK)
+        ON liliba.BillingActivityBatchCategoryKey = lbabc.BillingActivityBatchCategoryKey
 
+    -- LEFT JOIN LetterShop.dbo.LIS_ReturnLogicDetails lrd (NOLOCK)
+    --     ON lrd.ReturnLogicDetailId = lbabcd.ReturnLogicDetailId
+
+-- TODO: Examine Caculators Per Line Item
 GROUP BY lstb.InvoiceLineItemKey, lstb.InvoiceLineItemGroupKey, lstb.LineItemKey, lili.InvoiceLineItemKey
 ORDER by lili.InvoiceLineItemKey
 
