@@ -141,10 +141,13 @@ SUM (lbabc.TotalReturned),
 FROM @LassSalesTaxBatches lstb
     INNER JOIN LASS_InvoiceLineItems lili (NOLOCK)
         ON lili.InvoiceLineItemKey = lstb.InvoiceLineItemKey
-    -- INNER JOIN LASS_ClientLineItems lcli (NOLOCK)
-    --     ON lili.LineItemKey = lcli.LineItemKey
     INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
         ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+
+    INNER JOIN LASS_ClientLineItems lcli (NOLOCK)
+        ON lili.LineItemKey = lcli.LineItemKey
+        AND lcli.ClientLineItemKey = liliba.ClientLineItemKey
+
     -- INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
     --     ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
     --     AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
