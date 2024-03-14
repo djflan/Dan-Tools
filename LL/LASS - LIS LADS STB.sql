@@ -130,10 +130,12 @@ END
 
 SELECT 
 --COUNT(distinct lbabcd.BillingActivityBatchCategoryDetailId), 
-SUM (lbabc.BillingActivityBatchTotal),
+min(lli.LineItemCalculatorModule),
+SUM(lbabc.BillingActivityBatchTotal),
 SUM(lbabc.TotalSuppressed),
 SUM(lbabc.TotalUpdated),
-SUM (lbabc.TotalReturned),
+SUM(lbabc.TotalReturned),
+
     lstb.InvoiceLineItemKey,
     lstb.InvoiceLineItemGroupKey,
     lstb.LineItemKey,
@@ -143,6 +145,9 @@ FROM @LassSalesTaxBatches lstb
         ON lili.InvoiceLineItemKey = lstb.InvoiceLineItemKey
     INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
         ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+
+    INNER JOIN LASS_LineItems lli (NOLOCK)
+        ON lli.LineItemKey = lstb.LineItemKey
 
     INNER JOIN LASS_ClientLineItems lcli (NOLOCK)
         ON lili.LineItemKey = lcli.LineItemKey
