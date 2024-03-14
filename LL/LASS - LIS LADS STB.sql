@@ -130,11 +130,11 @@ END
 
 SELECT 
 --COUNT(distinct lbabcd.BillingActivityBatchCategoryDetailId), 
-min(lli.LineItemCalculatorModule),
-SUM(lbabc.BillingActivityBatchTotal),
-SUM(lbabc.TotalSuppressed),
-SUM(lbabc.TotalUpdated),
-SUM(lbabc.TotalReturned),
+min(lli.LineItemCalculatorModule) as LineItemCalculatorModule,
+SUM(lbabc.BillingActivityBatchTotal) as BillingActivityBatchTotal,
+SUM(lbabc.TotalSuppressed) as TotalSuppressed,
+SUM(lbabc.TotalUpdated) as TotalUpdated,
+SUM(lbabc.TotalReturned) as TotalReturned,
 
     lstb.InvoiceLineItemKey,
     lstb.InvoiceLineItemGroupKey,
