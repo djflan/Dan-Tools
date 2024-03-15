@@ -30,13 +30,13 @@ INSERT INTO @LassSalesTaxBatches
     DateAdded,
     IsActive)
 VALUES
-    (NEWID(), 3111640, 1, 'NCOA', 17, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111641, 1, 'Postage', 20, 'FR020100', 'Postage', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111637, 1, 'Additional Pages', 13, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111643, 1, 'ReturnLogic', 29, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111636, 1, 'Lettershop', 31, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111638, 1, 'Inserts', 2, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
-    (NEWID(), 3111639, 1, 'Duplex Fee', 9, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111640, 1, 'NCOA', 17, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111641, 1, 'Postage', 20, 'FR020100', 'Postage', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111637, 1, 'Additional Pages', 13, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111643, 1, 'ReturnLogic', 29, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111636, 1, 'Lettershop', 31, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111638, 1, 'Inserts', 2, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
+    -- (NEWID(), 3111639, 1, 'Duplex Fee', 9, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
     (NEWID(), 3111642, 1, 'ReturnLogic', 32, 'SD020900', 'Service', 'dflanigan', GETDATE(), 1)
 
 DECLARE @TotalInvoiceLineItemRows INT = ( SELECT COUNT(*) FROM @LassSalesTaxBatches )
@@ -61,7 +61,20 @@ BEGIN
             ON lili.LineItemKey = li.LineItemKey
     WHERE lili.InvoiceLineItemKey = @InvoiceLineItemKey)
 
-    SELECT @LineItemCalculatorModule
+    -- bab
+    SELECT bab.* FROM LASS_InvoiceLineItems (NOLOCK) lili
+        INNER JOIN LASS_LineItems (NOLOCK) li
+            ON lili.LineItemKey = li.LineItemKey
+        INNER JOIN LASS_InvoiceLineItemBillingActivities (NOLOCK) liliba 
+            ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+        INNER JOIN LASS_BillingActivityBatchCategories (NOLOCK) babc
+            ON liliba.BillingActivityBatchCategoryKey = babc.BillingActivityBatchCategoryKey
+        INNER JOIN LASS_BillingActivityBatch (NOLOCK) bab
+            ON babc.BillingActivityBatchKey = bab.BillingActivityBatchKey
+    WHERE lili.InvoiceLineItemKey = @InvoiceLineItemKey
+    -- /bab
+
+    --SELECT @LineItemCalculatorModule
 
     -- Increment the counter
     SET @CurrentInvoiceLineItemRow = @CurrentInvoiceLineItemRow + 1
