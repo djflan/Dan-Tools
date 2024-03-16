@@ -50,9 +50,8 @@ BEGIN
         DateAdded,
         IsActive
     )
-    SELECT --NEWID(),
+    SELECT 
            lili.InvoiceLineItemKey,
-           --@SalesTaxBatchStatusKeyNew,
            lili.InvoiceLineItemGroupKey,
            lili.LineItemKey,
            lstc.TaxCode,
@@ -95,9 +94,7 @@ ELSE
 BEGIN
     INSERT INTO @NonServiceInvoiceLineItems
     (
-      --  SalesTaxBatchId,
         InvoiceLineItemKey,
-     --   SalesTaxBatchStatusKey,
         InvoiceLineItemGroupKey,
         LineItemKey,
         TaxCode,
@@ -107,7 +104,7 @@ BEGIN
         IsActive
     )
     VALUES
-	(3111641, 'Postage', 20, 'FR020100', 'Postage', 'dflanigan', GETDATE(), 1),
+	 (3111641, 'Postage', 20, 'FR020100', 'Postage', 'dflanigan', GETDATE(), 1),
      (3111637, 'Additional Pages', 13, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
      (3111636, 'Lettershop', 31, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
      (3111638, 'Inserts', 2, 'P0000000', 'Print', 'dflanigan', GETDATE(), 1),
