@@ -6,7 +6,6 @@ IF (OBJECT_ID('tempdb..#LASS_BillingTransactions_NonMaestro_Populate') IS NOT NU
 GO
 
 -- Sproc - create billing transaction data (LIS/LADS)
-
 CREATE PROC #LASS_BillingTransactions_NonMaestro_Populate
     @1InvoiceLineItemKey BIGINT,
     @1LineItemCalculatorModule NVARCHAR(256),
@@ -17,10 +16,18 @@ BEGIN
     IF (@1HostSystemId = 0)
     BEGIN
         PRINT 'Unknown Host System'
+		RETURN
     END
     ELSE
     BEGIN
-    PRINT CAST(@1InvoiceLineItemKey AS NVARCHAR(MAX)) + ' ' + CAST(@1HostSystemId AS NVARCHAR(MAX)) + ' ' + @1LineItemCalculatorModule
+		PRINT CAST(@1InvoiceLineItemKey AS NVARCHAR(MAX)) + ' ' + CAST(@1HostSystemId AS NVARCHAR(MAX)) + ' ' + @1LineItemCalculatorModule
+		
+		IF (@1HostSystemId = 1) -- LIS
+		BEGIN
+			SELECT top 1 * from tblBillingTransactions
+			SELECT * FROM tblBillingTransactionTypes
+		END
+
     END
 END
 GO
