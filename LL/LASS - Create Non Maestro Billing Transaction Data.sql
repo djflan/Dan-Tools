@@ -1,8 +1,8 @@
 USE LASS
 GO
 
-IF (OBJECT_ID('tempdb..#LASS_BillingTransactions_NonMaestro_Populate') IS NOT NULL)
-    DROP PROC #LASS_BillingTransactions_NonMaestro_Populate
+-- Drop Sproc (DEBUG)
+IF (OBJECT_ID('tempdb..#LASS_BillingTransactions_NonMaestro_Populate') IS NOT NULL) DROP PROC #LASS_BillingTransactions_NonMaestro_Populate
 GO
 
 -- Sproc - create billing transaction data (LIS/LADS)
@@ -12,37 +12,160 @@ CREATE PROC #LASS_BillingTransactions_NonMaestro_Populate
     @1HostSystemId INT
 AS
 BEGIN
+    -- Line Item Calculators
+
+    DECLARE @LetterShopLineItemCalculatorModule NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.LetterShopLineItemCalculator'
+    DECLARE @PostageLineItemCalculatorModule NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.PostageLineItemCalculator'
+    DECLARE @AdditionalPagesLineItemCalculatorModule NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.AdditionalPagesLineItemCalculator'
+    DECLARE @InsertsLineItemCalculatorModule NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.InsertsLineItemCalculator'
+    DECLARE @DuplexLineItemCalculatorModule NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.DuplexLineItemCalculator'
+
+    -- Supported Line Item Calculator Modules
+    DECLARE @SupportedLineItemCalculatorModules TABLE (
+        [LineItemCalculatorModule] [nvarchar](256) NOT NULL
+    )
+
+    -- Populate Supported Line Item Calculator Modules
+    INSERT INTO @SupportedLineItemCalculatorModules VALUES
+        (@LetterShopLineItemCalculatorModule),
+        (@PostageLineItemCalculatorModule),
+        (@AdditionalPagesLineItemCalculatorModule),
+        (@InsertsLineItemCalculatorModule),
+        (@DuplexLineItemCalculatorModule)
+
     -- TODO: Add warning to invoice generation session if host system cannot be identified
     IF (@1HostSystemId = 0)
     BEGIN
         PRINT 'Unknown Host System'
 		RETURN
     END
-    ELSE
+
+    -- TODO: Add warning to invoice generation session if line item calculator module is not supported
+    IF (@1LineItemCalculatorModule NOT IN (SELECT LineItemCalculatorModule FROM @SupportedLineItemCalculatorModules WHERE LineItemCalculatorModule = @1LineItemCalculatorModule))
     BEGIN
-		PRINT CAST(@1InvoiceLineItemKey AS NVARCHAR(MAX)) + ' ' + CAST(@1HostSystemId AS NVARCHAR(MAX)) + ' ' + @1LineItemCalculatorModule
-		
-		IF (@1HostSystemId = 1) -- LIS
-		BEGIN
-			SELECT top 1 * from tblBillingTransactions
-			SELECT * FROM tblBillingTransactionTypes
-		END
+        PRINT 'Unsupported Line Item Calculator Module: ' + @1LineItemCalculatorModule
+        RETURN
+    END
+    
+    -- At this point, we know that the line item calculator module is supported and the host system is known
+	--PRINT CAST(@1InvoiceLineItemKey AS NVARCHAR(MAX)) + ' ' + CAST(@1HostSystemId AS NVARCHAR(MAX)) + ' ' + @1LineItemCalculatorModule
+	
+    DECLARE @Finshed BIT = 0
+
+    -- Host System Specific Logic (LIS)
+	IF (@1HostSystemId = 1)
+	BEGIN
+		-- SELECT top 1 * from tblBillingTransactions
+		-- SELECT * FROM tblBillingTransactionTypes
+
+        IF  (@1LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR 
+            (@1LineItemCalculatorModule = @PostageLineItemCalculatorModule) OR 
+            (@1LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule) OR 
+            (@1LineItemCalculatorModule = @InsertsLineItemCalculatorModule) OR 
+            (@1LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
+        BEGIN
+            SELECT 
+                count(lbabcd.BillingActivityBatchCategoryDetailKey) as CalculatedQuantity, 
+                -- @1LineItemCalculatorModule as LineItemCalculatorModule, 
+                min(lili.InvoiceLineItemGroupKey) as GroupKey,
+                min(lili.Quantity) as InvoicedQuantity
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                -- INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                --     ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicDetails lrd (NOLOCK)
+                --     ON lrd.ReturnLogicDetailId = lbabcd.ReturnLogicDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicReturnReasons lrrr (NOLOCK)
+                --     ON lrrr.ReturnLogicReturnReasonId = lrd.ReturnLogicReturnReasonId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+
+            SET @Finshed = 1
+        END
+	END
+
+    -- Host System Specific Logic (LADS)
+    IF (@1HostSystemId = 2)
+    BEGIN
+
+        IF  (@1LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR 
+            (@1LineItemCalculatorModule = @PostageLineItemCalculatorModule) OR 
+            (@1LineItemCalculatorModule = @InsertsLineItemCalculatorModule) OR 
+            (@1LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
+        BEGIN
+            SELECT 
+                count(lbabcd.BillingActivityBatchCategoryDetailKey) as CalculatedQuantity, 
+                -- @1LineItemCalculatorModule as LineItemCalculatorModule, 
+                min(lili.InvoiceLineItemGroupKey) as GroupKey,
+                min(lili.Quantity) as InvoicedQuantity
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                -- INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                --     ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicDetails lrd (NOLOCK)
+                --     ON lrd.ReturnLogicDetailId = lbabcd.ReturnLogicDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicReturnReasons lrrr (NOLOCK)
+                --     ON lrrr.ReturnLogicReturnReasonId = lrd.ReturnLogicReturnReasonId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+
+            SET @Finshed = 1
+        END
+
+        --TODO: FIGURE OUT WHY AMOUNT FOR ADDITIONAL PAGES IS NOT WORKING (48,496 calc vs 56,045 invoiced)
+        IF  (@1LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule)
+        BEGIN
+            SELECT 
+                sum(CASE WHEN ldsd.DocumentPaperPageCount > 1 THEN 1 ELSE 0 END) as CalculatedQuantity, 
+                -- @1LineItemCalculatorModule as LineItemCalculatorModule, 
+                min(lili.InvoiceLineItemGroupKey) as GroupKey,
+                min(lili.Quantity) as InvoicedQuantity
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd (NOLOCK)
+                    ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicDetails lrd (NOLOCK)
+                --     ON lrd.ReturnLogicDetailId = lbabcd.ReturnLogicDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicReturnReasons lrrr (NOLOCK)
+                --     ON lrrr.ReturnLogicReturnReasonId = lrd.ReturnLogicReturnReasonId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+
+            SET @Finshed = 1
+        END
 
     END
+
+    -- If we didn't find a match, return a warning
+    IF (@Finshed = 0)
+    BEGIN
+        PRINT 'No Match Found for InvoiceLineItemKey: ' + CAST(@1InvoiceLineItemKey AS NVARCHAR(MAX)) + ' HostSystemId: ' + CAST(@1HostSystemId AS NVARCHAR(MAX)) + ' LineItemCalculatorModule: ' + @1LineItemCalculatorModule
+    END
+    
 END
 GO
 
 -- /Sproc
 
-DECLARE @InvoiceGenerationSessionKey INT = 129247 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
+DECLARE @InvoiceGenerationSessionKey INT = 129094 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
 DECLARE @SalesTaxBatchStatusKeyNew INT = (
     SELECT SalesTaxBatchStatusKey
         FROM LASS.dbo.LASS_SalesTaxBatchStatuses
     WHERE SalesTaxBatchStatusId = '7BB2234C-2EEC-4AC3-BBA0-E4F9EF019E9C')
 DECLARE @IsActive BIT = 1
 
-DECLARE @UseDebugDataForNonServiceInvoiceLineItems BIT = 1
+DECLARE @UseDebugDataForNonServiceInvoiceLineItems BIT = 0
 DECLARE @ViewNonServiceInvoiceLineItems BIT = 0
+DECLARE @ViewInvoiceLineItemBillingActivityCategoryTypes BIT = 0
 
 -- temp
 -- DECLARE @BillingActivityBatches TABLE (
@@ -128,22 +251,21 @@ BEGIN
         TaxCategory
     )
     VALUES
-	 (3111641, 'Postage', 20, 'FR020100', 'Postage')--,
-    --  (3111637, 'Additional Pages', 13, 'P0000000', 'Print'),
-    --  (3111636, 'Lettershop', 31, 'P0000000', 'Print'),
-    --  (3111638, 'Inserts', 2, 'P0000000', 'Print'),
-    --  (3111639, 'Duplex Fee', 9, 'P0000000', 'Print')
+	 (3111641, 'Postage', 20, 'FR020100', 'Postage'),
+     (3111637, 'Additional Pages', 13, 'P0000000', 'Print'),
+     (3111636, 'Lettershop', 31, 'P0000000', 'Print'),
+     (3111638, 'Inserts', 2, 'P0000000', 'Print'),
+     (3111639, 'Duplex Fee', 9, 'P0000000', 'Print')
 END
 
+-- View Non-Service Invoice Line Items (DEBUG)
 IF (@ViewNonServiceInvoiceLineItems = 1) 
 BEGIN
     SELECT * FROM @NonServiceInvoiceLineItems
     ORDER BY InvoiceLineItemKey
-    --RETURN
 END
 
 DECLARE @TotalInvoiceLineItemRows INT = ( SELECT COUNT(*) FROM @NonServiceInvoiceLineItems )
-
 DECLARE @CurrentInvoiceLineItemRow INT = 1
 
 WHILE @CurrentInvoiceLineItemRow <= @TotalInvoiceLineItemRows
@@ -188,6 +310,24 @@ BEGIN
             ON babc.BillingActivityBatchKey = bab.BillingActivityBatchKey
     WHERE lili.InvoiceLineItemKey = @InvoiceLineItemKey
     */
+
+    IF (@ViewInvoiceLineItemBillingActivityCategoryTypes = 1)
+    BEGIN
+        SELECT 
+            distinct bact.BillingActivityCategoryTypeId, bact.BillingActivityCategoryTypeName, @InvoiceLineItemKey as InvoiceLineItemKey, @LineItemCalculatorModule as LineItemCalculatorModule
+        FROM LASS_InvoiceLineItems (NOLOCK) lili
+            INNER JOIN LASS_LineItems (NOLOCK) li
+                ON lili.LineItemKey = li.LineItemKey
+            INNER JOIN LASS_InvoiceLineItemBillingActivities (NOLOCK) liliba 
+                ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+            INNER JOIN LASS_BillingActivityBatchCategories (NOLOCK) babc
+                ON liliba.BillingActivityBatchCategoryKey = babc.BillingActivityBatchCategoryKey
+            INNER JOIN LASS_BillingActivityBatch (NOLOCK) bab
+                ON babc.BillingActivityBatchKey = bab.BillingActivityBatchKey
+            INNER JOIN LASS_BillingActivityCategoryTypes (NOLOCK) bact
+                ON babc.BillingActivityCategoryTypeKey = bact.BillingActivityCategoryTypeKey
+        WHERE lili.InvoiceLineItemKey = @InvoiceLineItemKey
+    END
     -- /bab
 
     -- *Determine host system
