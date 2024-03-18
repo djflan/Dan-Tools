@@ -2,7 +2,8 @@ USE LASS
 GO
 
 -- Drop Sproc (DEBUG)
-IF (OBJECT_ID('tempdb..#LASS_BillingTransactions_NonMaestro_Populate') IS NOT NULL) DROP PROC #LASS_BillingTransactions_NonMaestro_Populate
+IF (OBJECT_ID('tempdb..#LASS_BillingTransactions_NonMaestro_Populate') IS NOT NULL) 
+    DROP PROC #LASS_BillingTransactions_NonMaestro_Populate
 GO
 
 -- Sproc - create billing transaction data (LIS/LADS)
@@ -16,17 +17,28 @@ BEGIN
     DECLARE @FoundLineItemCalculatorModule BIT = 0
 
     -- Line Item Calculators
-    DECLARE @LetterShopLineItemCalculatorModule                         NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.LetterShopLineItemCalculator'
-    DECLARE @PostageLineItemCalculatorModule                            NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.PostageLineItemCalculator'
-    DECLARE @AdditionalPostageLineItemCalculatorModule                  NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.AdditionalPostageLineItemCalculator'
     DECLARE @AdditionalPagesLineItemCalculatorModule                    NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.AdditionalPagesLineItemCalculator'
-    DECLARE @InsertsLineItemCalculatorModule                            NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.InsertsLineItemCalculator'
     DECLARE @DuplexLineItemCalculatorModule                             NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.DuplexLineItemCalculator'
+    DECLARE @InsertsLineItemCalculatorModule                            NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.InsertsLineItemCalculator'
+    DECLARE @LetterShopLineItemCalculatorModule                         NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.LetterShopLineItemCalculator'
+
+    DECLARE @AdditionalPostageInternationalLineItemCalculatorModule     NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.AdditionalPostageInternationalLineItemCalculator'
+    DECLARE @AdditionalPostageLineItemCalculatorModule                  NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.AdditionalPostageLineItemCalculator'
     DECLARE @ForceMailPostageLineItemCalculatorModule                   NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.ForceMailPostageLineItemCalculator'
     DECLARE @ForceMailSpecialHandlingPostageLineItemCalculatorModule    NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.ForceMailSpecialHandlingPostageLineItemCalculator'
+    DECLARE @InternationalPostageCanadaLineItemCalculatorModule         NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.InternationalPostageCanadaLineItemCalculator'
+    DECLARE @InternationalPostageLineItemCalculatorModule               NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.InternationalPostageLineItemCalculator'
+    DECLARE @PostageLineItemCalculatorModule                            NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.PostageLineItemCalculator'
+
+
+    -- Remove Temporary Tables
+    IF OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails') IS NOT NULL
+    BEGIN
+    	DROP TABLE #QualifiedBillingActivityBatchCategoryDetails
+    END
 
     -- Qualified Billing Activity Batch Category Details and Amounts
-    DECLARE @QualifiedBillingActivityBatchCategoryDetails TABLE (
+    CREATE TABLE #QualifiedBillingActivityBatchCategoryDetails (
         [BillingActivityBatchCategoryDetailKey] [bigint] NOT NULL,
         [DataStreamDetailId] [uniqueidentifier] NOT NULL,
         [BillingActivityBatchCategoryQuantity] [bigint] NOT NULL
@@ -48,7 +60,7 @@ BEGIN
             (@1LineItemCalculatorModule = @InsertsLineItemCalculatorModule) OR 
             (@1LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
         BEGIN
-            INSERT INTO @QualifiedBillingActivityBatchCategoryDetails (
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
                 [BillingActivityBatchCategoryDetailKey],
                 [DataStreamDetailId],
                 [BillingActivityBatchCategoryQuantity]
@@ -67,6 +79,84 @@ BEGIN
 
             SET @FoundLineItemCalculatorModule = 1
         END
+
+        IF  (@1LineItemCalculatorModule = @InternationalPostageLineItemCalculatorModule) OR
+            (@1LineItemCalculatorModule = @AdditionalPostageInternationalLineItemCalculatorModule)
+        BEGIN
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
+                [BillingActivityBatchCategoryDetailKey],
+                [DataStreamDetailId],
+                [BillingActivityBatchCategoryQuantity]
+            )
+            SELECT
+                lbabcd.BillingActivityBatchCategoryDetailKey,
+                lbabcd.DataStreamDetailId,
+                1
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                    ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+            AND ldsd.ForeignAddress = 1
+
+            SET @FoundLineItemCalculatorModule = 1
+        END
+
+        IF  (@1LineItemCalculatorModule = @InternationalPostageCanadaLineItemCalculatorModule)
+        BEGIN
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
+                [BillingActivityBatchCategoryDetailKey],
+                [DataStreamDetailId],
+                [BillingActivityBatchCategoryQuantity]
+            )
+            SELECT
+                lbabcd.BillingActivityBatchCategoryDetailKey,
+                lbabcd.DataStreamDetailId,
+                1
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                    ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+            AND ldsd.ForeignAddress = 1
+            AND LisAddressCountry = 'CANADA'
+
+            SET @FoundLineItemCalculatorModule = 1
+        END
+
+        IF  (@1LineItemCalculatorModule = @ForceMailPostageLineItemCalculatorModule) OR
+            (@1LineItemCalculatorModule = @ForceMailSpecialHandlingPostageLineItemCalculatorModule)
+        BEGIN
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
+                [BillingActivityBatchCategoryDetailKey],
+                [DataStreamDetailId],
+                [BillingActivityBatchCategoryQuantity]
+            )
+            SELECT
+                lbabcd.BillingActivityBatchCategoryDetailKey,
+                lbabcd.DataStreamDetailId,
+                1
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                    ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+            AND ldsd.ForceMail = 1
+
+            SET @FoundLineItemCalculatorModule = 1
+        END
 	END -- END Host System Specific Logic (LIS)
 
     -- Host System Specific Logic (LADS)
@@ -78,7 +168,7 @@ BEGIN
             (@1LineItemCalculatorModule = @AdditionalPostageLineItemCalculatorModule) OR
             (@1LineItemCalculatorModule = @InsertsLineItemCalculatorModule) 
         BEGIN
-            INSERT INTO @QualifiedBillingActivityBatchCategoryDetails (
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
                 [BillingActivityBatchCategoryDetailKey],
                 [DataStreamDetailId],
                 [BillingActivityBatchCategoryQuantity]
@@ -100,7 +190,7 @@ BEGIN
 
         IF  (@1LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule)
         BEGIN
-            INSERT INTO @QualifiedBillingActivityBatchCategoryDetails (
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
                 [BillingActivityBatchCategoryDetailKey],
                 [DataStreamDetailId],
                 [BillingActivityBatchCategoryQuantity]
@@ -125,7 +215,7 @@ BEGIN
 
         IF (@1LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
             BEGIN
-            INSERT INTO @QualifiedBillingActivityBatchCategoryDetails (
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
                 [BillingActivityBatchCategoryDetailKey],
                 [DataStreamDetailId],
                 [BillingActivityBatchCategoryQuantity]
@@ -151,7 +241,7 @@ BEGIN
         IF (@1LineItemCalculatorModule = @ForceMailPostageLineItemCalculatorModule) OR 
            (@1LineItemCalculatorModule = @ForceMailSpecialHandlingPostageLineItemCalculatorModule)
         BEGIN
-            INSERT INTO @QualifiedBillingActivityBatchCategoryDetails (
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
                 [BillingActivityBatchCategoryDetailKey],
                 [DataStreamDetailId],
                 [BillingActivityBatchCategoryQuantity]
@@ -184,7 +274,7 @@ BEGIN
     END
 
     DECLARE @InvoicedQuantity BIGINT = (SELECT TOP 1 lili.Quantity FROM LASS_InvoiceLineItems lili (NOLOCK) where lili.InvoiceLineItemKey = @1InvoiceLineItemKey)
-    DECLARE @CalculatedQuantity BIGINT = (SELECT SUM(qbabcd.BillingActivityBatchCategoryQuantity) FROM @QualifiedBillingActivityBatchCategoryDetails qbabcd)
+    DECLARE @CalculatedQuantity BIGINT = (SELECT SUM(qbabcd.BillingActivityBatchCategoryQuantity) FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd)
     DECLARE @IsQuantityMatch BIT = (SELECT CASE WHEN @CalculatedQuantity = @InvoicedQuantity THEN 1 ELSE 0 END)
     
     DECLARE @VendorItemName NVARCHAR(MAX) = (
@@ -194,32 +284,79 @@ BEGIN
             ON lili.VendorItemKey = vi.VendorItemKey
         WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey)
 
-    DECLARE @NumberOfDetails BIGINT = (SELECT COUNT(*) FROM @QualifiedBillingActivityBatchCategoryDetails)
+    DECLARE @NumberOfDetails BIGINT = (SELECT COUNT(*) FROM #QualifiedBillingActivityBatchCategoryDetails)
  
     -- Determine if the calculated quantity and invoiced quantity are the same
     SELECT FORMAT(@CalculatedQuantity,'N0') AS CalculatedQuantity, @VendorItemName AS ItemName, FORMAT(@InvoicedQuantity,'N0') AS InvoicedQuantity, @IsQuantityMatch AS IsQuantityMatch, FORMAT(@NumberOfDetails, 'N0') AS QualifiedDataStreamDetailsInBatchCategory
     
     -- TODO: Do not generate billing transaction data when the calculated quantity and invoiced quantity are not the same
+    IF (@IsQuantityMatch = 1) -- Generate billing transaction data
+    BEGIN
+        -- Create index for table
+        IF NOT EXISTS(SELECT name FROM tempdb.sys.indexes WHERE name='IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId' AND object_id = OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails'))							
+	    BEGIN
+	    	CREATE NONCLUSTERED INDEX IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId ON #QualifiedBillingActivityBatchCategoryDetails(DataStreamDetailId)
+	    END
+
+        IF(@1HostSystemId = 1)
+        BEGIN
+            SELECT  
+                count (ldsd.DataStreamDetailId) as NumDetails,
+                ldsd.LisCity,
+                ldsd.LisState,
+                ldsd.LisZip,
+                CASE WHEN ldsd.ForeignAddress = 1 THEN 'Yes' ELSE 'No' END AS ForeignAddress
+            FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
+            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            GROUP BY 
+                ldsd.LisCity,
+                ldsd.LisState,
+                ldsd.LisZip,
+                ldsd.ForeignAddress
+        END
+
+        IF(@1HostSystemId = 2)
+        BEGIN
+            SELECT  
+                count (ldsd.DataStreamDetailId) as NumDetails,
+                ldsd.City,
+                ldsd.State,
+                ldsd.ZipCode
+                --ldsd.LisAddressCountry
+            FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
+            INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd (NOLOCK)
+                ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            GROUP BY 
+                ldsd.City,
+                ldsd.State,
+                ldsd.ZipCode
+                --ldsd.LisAddressCountry --TODO: Figure out country for LADS
+        END
+
+    END -- End Generate billing transaction data
 
 END
 GO
 
 -- /Sproc
 
-DECLARE @InvoiceGenerationSessionKey INT = 129094 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
-DECLARE @SalesTaxBatchStatusKeyNew INT = (
-    SELECT SalesTaxBatchStatusKey
-        FROM LASS.dbo.LASS_SalesTaxBatchStatuses
-    WHERE SalesTaxBatchStatusId = '7BB2234C-2EEC-4AC3-BBA0-E4F9EF019E9C')
-DECLARE @IsActive BIT = 1
+DECLARE @InvoiceGenerationSessionKey INT = 131466 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
+DECLARE @SalesTaxBatchStatusKeyNew INT = (SELECT SalesTaxBatchStatusKey FROM LASS.dbo.LASS_SalesTaxBatchStatuses WHERE SalesTaxBatchStatusId = '7BB2234C-2EEC-4AC3-BBA0-E4F9EF019E9C')
 
 -- Debugging
 DECLARE @UseDebugDataForNonServiceInvoiceLineItems BIT = 0
 DECLARE @ViewNonServiceInvoiceLineItems BIT = 0
 DECLARE @ViewInvoiceLineItemBillingActivityCategoryTypes BIT = 0
 
+-- Remove Temporary Tables
+IF OBJECT_ID('tempdb..#NonServiceInvoiceLineItems') IS NOT NULL
+BEGIN
+	DROP TABLE #NonServiceInvoiceLineItems
+END
+
 -- Non-Service Invoice Line Items
-DECLARE @NonServiceInvoiceLineItems TABLE
+CREATE TABLE #NonServiceInvoiceLineItems 
 (
     [InvoiceLineItemKey] [bigint] NULL,
     [InvoiceLineItemGroupKey] [nvarchar](128) NULL,
@@ -230,7 +367,7 @@ DECLARE @NonServiceInvoiceLineItems TABLE
 
 IF (@UseDebugDataForNonServiceInvoiceLineItems = 0)
 BEGIN
-    INSERT INTO @NonServiceInvoiceLineItems
+    INSERT INTO #NonServiceInvoiceLineItems
     (
         InvoiceLineItemKey,
         InvoiceLineItemGroupKey,
@@ -239,6 +376,7 @@ BEGIN
         TaxCategory
     )
     SELECT 
+    --top 1 -- (DEBUG)
            lili.InvoiceLineItemKey,
            lili.InvoiceLineItemGroupKey,
            lili.LineItemKey,
@@ -280,7 +418,7 @@ BEGIN
 END
 ELSE
 BEGIN
-    INSERT INTO @NonServiceInvoiceLineItems
+    INSERT INTO #NonServiceInvoiceLineItems
     (
         InvoiceLineItemKey,
         InvoiceLineItemGroupKey,
@@ -299,7 +437,7 @@ END
 -- View Non-Service Invoice Line Items (DEBUG)
 IF (@ViewNonServiceInvoiceLineItems = 1) 
 BEGIN
-    SELECT nsili.*, vi.VendorItemName FROM @NonServiceInvoiceLineItems nsili
+    SELECT nsili.*, vi.VendorItemName FROM #NonServiceInvoiceLineItems nsili
         INNER JOIN LASS_InvoiceLineItems lili (NOLOCK)
             ON nsili.InvoiceLineItemKey = lili.InvoiceLineItemKey
         INNER JOIN LASS_VendorItems vi (NOLOCK)
@@ -307,7 +445,7 @@ BEGIN
     ORDER BY nsili.InvoiceLineItemKey
 END
 
-DECLARE @TotalInvoiceLineItemRows INT = ( SELECT COUNT(*) FROM @NonServiceInvoiceLineItems )
+DECLARE @TotalInvoiceLineItemRows INT = ( SELECT COUNT(*) FROM #NonServiceInvoiceLineItems )
 DECLARE @CurrentInvoiceLineItemRow INT = 1
 
 WHILE @CurrentInvoiceLineItemRow <= @TotalInvoiceLineItemRows
@@ -317,7 +455,7 @@ BEGIN
         SELECT InvoiceLineItemKey
     FROM (
         SELECT InvoiceLineItemKey, ROW_NUMBER() OVER (ORDER BY (InvoiceLineItemKey)) AS RowNum
-        FROM @NonServiceInvoiceLineItems) AS T
+        FROM #NonServiceInvoiceLineItems) AS T
     WHERE RowNum = @CurrentInvoiceLineItemRow)
 
     -- Get the LineItemCalculatorModule for the current InvoiceLineItemKey
@@ -371,8 +509,21 @@ BEGIN
         SET @HostSystemId = 2       -- LADS
     END
 
+    DECLARE @Test NVARCHAR(MAX) =
+    (SELECT vi.VendorItemName FROM LASS_InvoiceLineItems lili (NOLOCK) 
+        INNER JOIN LASS_LineItems li (NOLOCK)
+            ON lili.LineItemKey = li.LineItemKey
+        INNER JOIN LASS_VendorItems vi (NOLOCK)
+            ON li.VendorItemKey = vi.VendorItemKey
+    WHERE lili.InvoiceLineItemKey = @InvoiceLineItemKey)
+
+    PRINT @Test
+
+    IF (@Test like '%International%') OR (1=1) -- debug
+    BEGIN
     -- Attempt to populate the billing transactions table and billing transaction delivery points for the current InvoiceLineItemKey
     EXEC #LASS_BillingTransactions_NonMaestro_Populate @InvoiceLineItemKey, @LineItemCalculatorModule, @HostSystemId
+    END
 
     -- Increment the counter
     SET @CurrentInvoiceLineItemRow = @CurrentInvoiceLineItemRow + 1
