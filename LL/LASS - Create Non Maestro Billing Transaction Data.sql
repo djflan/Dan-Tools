@@ -54,7 +54,6 @@ BEGIN
 	IF (@1HostSystemId = 1) -- Begin Host System Specific Logic (LIS)
 	BEGIN
         IF  (@1LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR 
-            (@1LineItemCalculatorModule = @PostageLineItemCalculatorModule) OR 
             (@1LineItemCalculatorModule = @AdditionalPostageLineItemCalculatorModule) OR
             (@1LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule) OR 
             (@1LineItemCalculatorModule = @InsertsLineItemCalculatorModule) OR 
@@ -76,6 +75,31 @@ BEGIN
                     ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
                     AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
             WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+
+            SET @FoundLineItemCalculatorModule = 1
+        END
+
+        IF  (@1LineItemCalculatorModule = @PostageLineItemCalculatorModule)
+        BEGIN
+            INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
+                [BillingActivityBatchCategoryDetailKey],
+                [DataStreamDetailId],
+                [BillingActivityBatchCategoryQuantity]
+            )
+            SELECT
+                lbabcd.BillingActivityBatchCategoryDetailKey,
+                lbabcd.DataStreamDetailId,
+                1
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                    ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+            AND ldsd.IsActive = 1
 
             SET @FoundLineItemCalculatorModule = 1
         END
@@ -287,7 +311,7 @@ BEGIN
     DECLARE @NumberOfDetails BIGINT = (SELECT COUNT(*) FROM #QualifiedBillingActivityBatchCategoryDetails)
  
     -- Determine if the calculated quantity and invoiced quantity are the same
-    SELECT FORMAT(@CalculatedQuantity,'N0') AS CalculatedQuantity, @VendorItemName AS ItemName, FORMAT(@InvoicedQuantity,'N0') AS InvoicedQuantity, @IsQuantityMatch AS IsQuantityMatch, FORMAT(@NumberOfDetails, 'N0') AS QualifiedDataStreamDetailsInBatchCategory
+    SELECT @1HostSystemId as Host, FORMAT(@CalculatedQuantity,'N0') AS '#Calc', @VendorItemName AS Item, FORMAT(@InvoicedQuantity,'N0') AS '#Inv', @IsQuantityMatch AS Valid, FORMAT(@NumberOfDetails, 'N0') AS '#CatDetails', @1LineItemCalculatorModule as Module
     
     -- TODO: Do not generate billing transaction data when the calculated quantity and invoiced quantity are not the same
     IF (@IsQuantityMatch = 1) -- Generate billing transaction data
