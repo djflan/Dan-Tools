@@ -85,7 +85,7 @@ BEGIN
 
             SET @Finshed = 1
         END
-	END
+	END -- END Host System Specific Logic (LIS)
 
     -- Host System Specific Logic (LADS)
     IF (@1HostSystemId = 2)
@@ -93,8 +93,7 @@ BEGIN
 
         IF  (@1LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR 
             (@1LineItemCalculatorModule = @PostageLineItemCalculatorModule) OR 
-            (@1LineItemCalculatorModule = @InsertsLineItemCalculatorModule) OR 
-            (@1LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
+            (@1LineItemCalculatorModule = @InsertsLineItemCalculatorModule) 
         BEGIN
             SELECT 
                 count(lbabcd.BillingActivityBatchCategoryDetailKey) as CalculatedQuantity, 
@@ -118,11 +117,10 @@ BEGIN
             SET @Finshed = 1
         END
 
-        --TODO: FIGURE OUT WHY AMOUNT FOR ADDITIONAL PAGES IS NOT WORKING (48,496 calc vs 56,045 invoiced)
         IF  (@1LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule)
         BEGIN
             SELECT 
-                sum(CASE WHEN ldsd.DocumentPaperPageCount > 1 THEN 1 ELSE 0 END) as CalculatedQuantity, 
+                sum(CASE WHEN ldsd.DocumentPaperPageCount > 1 THEN (ldsd.DocumentPaperPageCount - 1) ELSE 0 END) as CalculatedQuantity, 
                 -- @1LineItemCalculatorModule as LineItemCalculatorModule, 
                 min(lili.InvoiceLineItemGroupKey) as GroupKey,
                 min(lili.Quantity) as InvoicedQuantity
@@ -143,7 +141,31 @@ BEGIN
             SET @Finshed = 1
         END
 
-    END
+        IF (@1LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
+            BEGIN
+            SELECT 
+                sum(ldsd.DocumentPageCount - ldsd.DocumentPaperPageCount) as CalculatedQuantity,
+                -- @1LineItemCalculatorModule as LineItemCalculatorModule, 
+                min(lili.InvoiceLineItemGroupKey) as GroupKey,
+                min(lili.Quantity) as InvoicedQuantity
+            FROM LASS_InvoiceLineItems (NOLOCK) lili
+                INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+                    ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
+                INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd (NOLOCK)
+                    ON liliba.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey
+                    AND liliba.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
+                INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd (NOLOCK)
+                    ON ldsd.DataStreamDetailId = lbabcd.DataStreamDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicDetails lrd (NOLOCK)
+                --     ON lrd.ReturnLogicDetailId = lbabcd.ReturnLogicDetailId
+                -- INNER JOIN LetterShop.dbo.LIS_ReturnLogicReturnReasons lrrr (NOLOCK)
+                --     ON lrrr.ReturnLogicReturnReasonId = lrd.ReturnLogicReturnReasonId
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey
+
+            SET @Finshed = 1
+            END
+
+    END -- End LADS Host System Specific Logic
 
     -- If we didn't find a match, return a warning
     IF (@Finshed = 0)
