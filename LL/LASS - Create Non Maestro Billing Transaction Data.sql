@@ -13,6 +13,10 @@ CREATE PROC #LASS_BillingTransactions_NonMaestro_Populate
     @1HostSystemId INT
 AS
 BEGIN
+    -- Debug
+    DECLARE @ShowInvoiceLineItemQualificationSummaryForAll BIT = 0
+    DECLARE @ShowInvoiceLineItemQualificationSummaryForNonMatched BIT = 1
+
     -- Misc Declarations
     DECLARE @FoundLineItemCalculatorModule BIT = 0
 
@@ -301,21 +305,44 @@ BEGIN
     DECLARE @CalculatedQuantity BIGINT = (SELECT SUM(qbabcd.BillingActivityBatchCategoryQuantity) FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd)
     DECLARE @IsQuantityMatch BIT = (SELECT CASE WHEN @CalculatedQuantity = @InvoicedQuantity THEN 1 ELSE 0 END)
     
-    DECLARE @VendorItemName NVARCHAR(MAX) = (
-        SELECT TOP 1 vi.VendorItemName
-            FROM LASS_InvoiceLineItems lili (NOLOCK) 
-        INNER JOIN LASS_VendorItems vi (NOLOCK)
-            ON lili.VendorItemKey = vi.VendorItemKey
-        WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey)
+    IF  (@ShowInvoiceLineItemQualificationSummaryForAll = 1) OR 
+        (@ShowInvoiceLineItemQualificationSummaryForNonMatched = 1)
+    BEGIN
+        -- Get the VendorItemName for the InvoiceLineItem
+        DECLARE @VendorItemName NVARCHAR(MAX) = (
+            SELECT TOP 1 vi.VendorItemName
+                FROM LASS_InvoiceLineItems lili (NOLOCK) 
+            INNER JOIN LASS_VendorItems vi (NOLOCK)
+                ON lili.VendorItemKey = vi.VendorItemKey
+            WHERE lili.InvoiceLineItemKey = @1InvoiceLineItemKey)
 
-    DECLARE @NumberOfDetails BIGINT = (SELECT COUNT(*) FROM #QualifiedBillingActivityBatchCategoryDetails)
- 
-    -- Determine if the calculated quantity and invoiced quantity are the same
-    SELECT @1HostSystemId as Host, FORMAT(@CalculatedQuantity,'N0') AS '#Calc', @VendorItemName AS Item, FORMAT(@InvoicedQuantity,'N0') AS '#Inv', @IsQuantityMatch AS Valid, FORMAT(@NumberOfDetails, 'N0') AS '#CatDetails', @1LineItemCalculatorModule as Module
+        -- Get the number of details for the InvoiceLineItem
+        DECLARE @NumberOfDetails BIGINT = (SELECT COUNT(*) FROM #QualifiedBillingActivityBatchCategoryDetails)
     
+        -- Determine if the calculated quantity and invoiced quantity are the same
+        IF  (@ShowInvoiceLineItemQualificationSummaryForAll = 1) OR 
+            (@ShowInvoiceLineItemQualificationSummaryForNonMatched = 1 AND @IsQuantityMatch = 0)
+        BEGIN
+            SELECT 
+                CASE 
+                    WHEN @1HostSystemId = 1 THEN 'LIS'
+                    WHEN @1HostSystemId = 2 THEN 'LADS' 
+                    ELSE 'Unknown' 
+                END as Host, 
+                    FORMAT(@CalculatedQuantity,'N0') AS '#Calc', 
+                    @VendorItemName AS Item, 
+                    FORMAT(@InvoicedQuantity,'N0') AS '#Inv', 
+                    @IsQuantityMatch AS Valid, 
+                    FORMAT(@NumberOfDetails, 'N0') AS '#CatDetails', 
+                    @1LineItemCalculatorModule as Module
+        END
+    END
+
     -- TODO: Do not generate billing transaction data when the calculated quantity and invoiced quantity are not the same
+    
     IF (@IsQuantityMatch = 1) -- Generate billing transaction data
     BEGIN
+        RETURN -- DEBUG FOR NOW
         -- Create index for table
         IF NOT EXISTS(SELECT name FROM tempdb.sys.indexes WHERE name='IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId' AND object_id = OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails'))							
 	    BEGIN
@@ -357,9 +384,25 @@ BEGIN
                 ldsd.ZipCode
                 --ldsd.LisAddressCountry --TODO: Figure out country for LADS
         END
+    END  -- End Generate billing transaction data
+    ELSE -- Quantity does not match
+    BEGIN
+        
+        IF (@1HostSystemId = 1)
+        BEGIN
+            SELECT ldsd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
+                INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                    ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+        END
 
-    END -- End Generate billing transaction data
+        IF (@1HostSystemId = 2)
+        BEGIN
+            SELECT ldsd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
+                INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd (NOLOCK)
+                    ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+        END
 
+    END
 END
 GO
 
