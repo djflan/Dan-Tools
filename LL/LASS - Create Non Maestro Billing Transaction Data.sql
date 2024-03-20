@@ -401,7 +401,6 @@ BEGIN
                 INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd (NOLOCK)
                     ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
         END
-
     END
 END
 GO
