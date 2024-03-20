@@ -1,14 +1,13 @@
 USE lass
 go
 
-DECLARE @ClientConfigKey INT = 335 --13
-DECLARE @InvoiceGenerationSessionKey INT = 129094 --127867
+DECLARE @ClientConfigKey INT = 64 --13
+DECLARE @InvoiceGenerationSessionKey INT = 131308 --127867
 DECLARE @FindClients BIT = 0
-DECLARE @FindInvoices BIT = 0
+DECLARE @LisActiveClients BIT = 0
+DECLARE @FindInvoices BIT = 1
 
-IF (@FindInvoices = 0)
-   AND (@FindClients = 0)
-   AND (@InvoiceGenerationSessionKey IS NOT NULL)
+IF (@FindInvoices = 0) AND (@FindClients = 0) AND (@InvoiceGenerationSessionKey IS NOT NULL)
 BEGIN
     SELECT DISTINCT
            lili.InvoiceLineItemKey,
@@ -42,6 +41,32 @@ END
 
 IF (@FindClients = 1)
 BEGIN
+
+    IF (@LisActiveClients = 1)
+    BEGIN
+
+        DECLARE @EndDate DATETIME = GETDATE()
+        DECLARE @StartDate DATETIME = DATEADD(DAY, -30, @EndDate)
+
+        SELECT DISTINCT
+               (lcc.ClientConfigurationKey) AS ClientConfigKey,
+               lcc.ClientConfigurationName
+        FROM LASS_Clients lc (NOLOCK)
+            INNER JOIN lass_clientconfigurations lcc (NOLOCK)
+                ON lcc.ClientKey = lc.ClientKey
+            INNER JOIN LASS_Invoices li (NOLOCK)
+                ON li.ClientConfigurationKey = lcc.ClientConfigurationKey
+            INNER JOIN LetterShop.dbo.LIS_ClientConfigs lsc (NOLOCK)
+                ON lsc.ClientConfigId = lcc.ClientConfigurationId
+            INNER JOIN LetterShop.dbo.LIS_FileStreamConfigs lfc (NOLOCK)
+                ON lsc.ClientConfigId = lfc.ClientConfigId
+            INNER JOIN LetterShop.dbo.LIS_FileStreams lfs (NOLOCK)
+                ON lfc.FileStreamConfigId = lfs.FileStreamConfigId
+        WHERE lfs.DateAdded BETWEEN @StartDate AND @EndDate AND lfs.IsActive = 1
+        ORDER BY lcc.ClientConfigurationName ASC
+    RETURN
+    END
+
     SELECT DISTINCT
            (lcc.ClientConfigurationKey) AS ClientConfigKey,
            lcc.ClientConfigurationName

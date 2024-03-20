@@ -16,6 +16,7 @@ BEGIN
     -- Debug
     DECLARE @ShowInvoiceLineItemQualificationSummaryForAll BIT = 0
     DECLARE @ShowInvoiceLineItemQualificationSummaryForNonMatched BIT = 1
+    DECLARE @ShowNonMatchedDetailMetadata BIT = 0
 
     -- Misc Declarations
     DECLARE @FoundLineItemCalculatorModule BIT = 0
@@ -33,7 +34,6 @@ BEGIN
     DECLARE @InternationalPostageCanadaLineItemCalculatorModule         NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.InternationalPostageCanadaLineItemCalculator'
     DECLARE @InternationalPostageLineItemCalculatorModule               NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.InternationalPostageLineItemCalculator'
     DECLARE @PostageLineItemCalculatorModule                            NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.PostageLineItemCalculator'
-
 
     -- Remove Temporary Tables
     IF OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails') IS NOT NULL
@@ -297,7 +297,10 @@ BEGIN
     -- If we didn't find a match, return a warning
     IF (@FoundLineItemCalculatorModule = 0)
     BEGIN
-        PRINT 'No Match Found for InvoiceLineItemKey: ' + CAST(@1InvoiceLineItemKey AS NVARCHAR(MAX)) + ' HostSystemId: ' + CAST(@1HostSystemId AS NVARCHAR(MAX)) + ' LineItemCalculatorModule: ' + @1LineItemCalculatorModule
+        SELECT 'No Calculator Module Match Found' as Warning, 
+        @1InvoiceLineItemKey as InvoiceLineItemKey,
+        CASE WHEN @1HostSystemId = 1 THEN 'LIS' WHEN @1HostSystemId = 2 THEN 'LADS' ELSE 'UNKNOWN' END as Host,
+        @1LineItemCalculatorModule as LineItemCalculatorModule
         RETURN
     END
 
@@ -329,10 +332,11 @@ BEGIN
                     WHEN @1HostSystemId = 2 THEN 'LADS' 
                     ELSE 'Unknown' 
                 END as Host, 
+                    @1InvoiceLineItemKey as InvoiceLineItemKey,
                     FORMAT(@CalculatedQuantity,'N0') AS '#Calc', 
-                    @VendorItemName AS Item, 
                     FORMAT(@InvoicedQuantity,'N0') AS '#Inv', 
                     @IsQuantityMatch AS Valid, 
+                    @VendorItemName AS Item, 
                     FORMAT(@NumberOfDetails, 'N0') AS '#CatDetails', 
                     @1LineItemCalculatorModule as Module
         END
@@ -387,19 +391,22 @@ BEGIN
     END  -- End Generate billing transaction data
     ELSE -- Quantity does not match
     BEGIN
-        
-        IF (@1HostSystemId = 1)
+        IF (@ShowNonMatchedDetailMetadata = 1)
         BEGIN
-            SELECT ldsd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
-                INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
-                    ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
-        END
-
-        IF (@1HostSystemId = 2)
-        BEGIN
-            SELECT ldsd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
-                INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd (NOLOCK)
-                    ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            -- Non-Matched Details (LIS)
+            IF (@1HostSystemId = 1)
+            BEGIN
+                SELECT ldsd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
+                    INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
+                        ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            END
+            -- Non-Matched Details (LADS)
+            IF (@1HostSystemId = 2)
+            BEGIN
+                SELECT ldsd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
+                    INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd (NOLOCK)
+                        ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            END
         END
     END
 END
@@ -407,7 +414,7 @@ GO
 
 -- /Sproc
 
-DECLARE @InvoiceGenerationSessionKey INT = 131466 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
+DECLARE @InvoiceGenerationSessionKey INT = 131308 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
 DECLARE @SalesTaxBatchStatusKeyNew INT = (SELECT SalesTaxBatchStatusKey FROM LASS.dbo.LASS_SalesTaxBatchStatuses WHERE SalesTaxBatchStatusId = '7BB2234C-2EEC-4AC3-BBA0-E4F9EF019E9C')
 
 -- Debugging
