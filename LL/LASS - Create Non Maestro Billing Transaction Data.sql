@@ -16,7 +16,7 @@ BEGIN
     -- Debug
     DECLARE @ShowInvoiceLineItemQualificationSummaryForAll BIT = 0
     DECLARE @ShowInvoiceLineItemQualificationSummaryForNonMatched BIT = 1
-    DECLARE @ShowNonMatchedDetailMetadata BIT = 0
+    DECLARE @ShowNonMatchedDetailMetadata BIT = 1
 
     -- Misc Declarations
     DECLARE @FoundLineItemCalculatorModule BIT = 0
@@ -396,7 +396,7 @@ BEGIN
             -- Non-Matched Details (LIS)
             IF (@1HostSystemId = 1)
             BEGIN
-                SELECT ldsd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
+                SELECT qbabcd.* FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd (NOLOCK)
                     INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd (NOLOCK)
                         ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
             END
@@ -414,7 +414,7 @@ GO
 
 -- /Sproc
 
-DECLARE @InvoiceGenerationSessionKey INT = 131308 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
+DECLARE @InvoiceGenerationSessionKey INT = 131466 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
 DECLARE @SalesTaxBatchStatusKeyNew INT = (SELECT SalesTaxBatchStatusKey FROM LASS.dbo.LASS_SalesTaxBatchStatuses WHERE SalesTaxBatchStatusId = '7BB2234C-2EEC-4AC3-BBA0-E4F9EF019E9C')
 
 -- Debugging
