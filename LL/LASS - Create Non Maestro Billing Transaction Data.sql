@@ -15,8 +15,8 @@ AS
 BEGIN
     -- Debug
     DECLARE @ShowInvoiceLineItemQualificationSummaryForAll BIT = 0
-    DECLARE @ShowInvoiceLineItemQualificationSummaryForNonMatched BIT = 1
-    DECLARE @ShowNonMatchedDetailMetadata BIT = 1
+    DECLARE @ShowInvoiceLineItemQualificationSummaryForNonMatched BIT = 0
+    DECLARE @ShowNonMatchedDetailMetadata BIT = 0
 
     -- Misc Declarations
     DECLARE @FoundLineItemCalculatorModule BIT = 0
@@ -343,10 +343,10 @@ BEGIN
     END
 
     -- TODO: Do not generate billing transaction data when the calculated quantity and invoiced quantity are not the same
-    
+    GOTO ENDING
     IF (@IsQuantityMatch = 1) -- Generate billing transaction data
     BEGIN
-        RETURN -- DEBUG FOR NOW
+         -- DEBUG FOR NOW
         -- Create index for table
         IF NOT EXISTS(SELECT name FROM tempdb.sys.indexes WHERE name='IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId' AND object_id = OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails'))							
 	    BEGIN
@@ -409,12 +409,26 @@ BEGIN
             END
         END
     END
+    ENDING:
+    -- DBG
+    PRINT 
+    CONCAT(
+        @1InvoiceLineItemKey,
+        ' - Matched: ', 
+        CAST(@IsQuantityMatch AS INT),
+        ' - Calc: ',
+        @CalculatedQuantity,
+        ' - Inv: ',
+        @InvoicedQuantity,
+        ' - Module: ',
+        @1LineItemCalculatorModule)
+
 END
 GO
 
 -- /Sproc
 
-DECLARE @InvoiceGenerationSessionKey INT = 131466 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
+DECLARE @InvoiceGenerationSessionKey INT = 129247--131466 -- 129094 (LADS-AVL) --129247 (LIS-ENT&A)
 DECLARE @SalesTaxBatchStatusKeyNew INT = (SELECT SalesTaxBatchStatusKey FROM LASS.dbo.LASS_SalesTaxBatchStatuses WHERE SalesTaxBatchStatusId = '7BB2234C-2EEC-4AC3-BBA0-E4F9EF019E9C')
 
 -- Debugging
