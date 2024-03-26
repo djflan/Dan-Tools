@@ -479,9 +479,6 @@ BEGIN
         -- Get lass line items
         INNER JOIN LASS_LineItems lli (NOLOCK)
             ON lli.LineItemKey = lili.LineItemKey
-        -- Gets client configuration (probably not needed)
-        INNER JOIN LASS.dbo.LASS_ClientConfigurations lcc (NOLOCK)
-            ON lcc.ClientConfigurationKey = ligs.ClientConfigurationKey
         -- Get invoice line item billing activities
         INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
             ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
