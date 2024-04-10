@@ -23,13 +23,7 @@ MODIFICATIONS:
   AUTHOR        date        DESC
   dflanigan     20240310    initial version
 =========================================================
---DEBUG
-DECLARE @ReturnCode	int
-DECLARE @ReturnMsg	nvarchar(256)
-DECLARE @InvoiceId UNIQUEIDENTIFIER = ''
 
-EXEC [dbo].[LASS_SalesTaxBatch_Maestro_Populate] @InvoiceId, @UserName, @ReturnCode output, @ReturnMsg output
-SELECT @ReturnCode AS ReturnCode, @ReturnMsg AS ReturnMsg
 =========================================================
 */
 AS
@@ -161,7 +155,7 @@ BEGIN
 	
         -- For any invoice line item where billing activity batch category details appear to be generated from a non-Maestro
         -- system, we will attempt to populate the billing transactions table and billing transaction delivery points.
-        IF (@HostSystemId != 0) 
+        IF (@HostSystemId != 0)
         BEGIN
 		    -- Attempt to populate the billing transactions table and billing transaction delivery points for the current InvoiceLineItemKey
 		    EXEC LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS @InvoiceGenerationSessionKey, @InvoiceLineItemKey, @LineItemKey, @LineItemCalculatorModule, @HostSystemId

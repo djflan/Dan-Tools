@@ -26,13 +26,7 @@ MODIFICATIONS:
   AUTHOR        date        DESC
   dflanigan     20240310    initial version
 =========================================================
---DEBUG
-DECLARE @ReturnCode	int
-DECLARE @ReturnMsg	nvarchar(256)
-DECLARE @InvoiceId UNIQUEIDENTIFIER = ''
 
-EXEC [dbo].[LASS_SalesTaxBatch_Maestro_Populate] @InvoiceId, @UserName, @ReturnCode output, @ReturnMsg output
-SELECT @ReturnCode AS ReturnCode, @ReturnMsg AS ReturnMsg
 =========================================================
 */
 AS
@@ -44,6 +38,9 @@ BEGIN
     DECLARE @FoundLineItemCalculatorModule BIT = 0
     DECLARE @IsErrorState BIT = 0
     DECLARE @InvoiceWarningMessage NVARCHAR(4000) = ''
+    DECLARE @BillingTransactionTypeGuid UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000000'
+    DECLARE @BillingTransactionTypeId INT = -1
+    DECLARE @CustomerId INT = -1
 
     -- Line Item Calculators
     DECLARE @AdditionalPagesLineItemCalculatorModule                    NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.LetterShop.AdditionalPagesLineItemCalculator'
@@ -59,7 +56,24 @@ BEGIN
     DECLARE @InternationalPostageLineItemCalculatorModule               NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.InternationalPostageLineItemCalculator'
     DECLARE @PostageLineItemCalculatorModule                            NVARCHAR(256) = 'LL.Components.LASS.LineItemCalculators.Postage.PostageLineItemCalculator'
 
-        -- Remove Temporary Tables
+    -- Billing Transaction Type Guids
+    DECLARE @BillingTransactionTypeGuidLetterShop                       UNIQUEIDENTIFIER = '7cd5755a-3827-4d05-ac9e-fe40322947e5'
+    DECLARE @BillingTransactionTypeGuidInserts                          UNIQUEIDENTIFIER = '39362017-6b1e-4d75-90a2-75fd0e422756'
+    DECLARE @BillingTransactionTypeGuidDuplex                           UNIQUEIDENTIFIER = '3fa59b34-b073-47bb-b196-5541e7367e2a'
+    DECLARE @BillingTransactionTypeGuidAdditionalPagesSx                UNIQUEIDENTIFIER = '0a970d9c-fdf0-4a67-ae30-ecdf3c37e1e6'
+    DECLARE @BillingTransactionTypeGuidPostage                          UNIQUEIDENTIFIER = '032c0ea6-de40-489e-9889-459e88fff1e8'
+    DECLARE @BillingTransactionTypeGuidForeignPostage                   UNIQUEIDENTIFIER = '981259db-bc3e-462a-8819-1a793dca9ca5'
+    DECLARE @BillingTransactionTypeGuidProcessed                        UNIQUEIDENTIFIER = '1ef4110f-47d7-4c54-bbed-d037eb6b3ddf'
+    DECLARE @BillingTransactionTypeGuidAdditionalPostage                UNIQUEIDENTIFIER = 'f4a7f8fa-966e-4140-ae08-77d03e9434e4'
+    DECLARE @BillingTransactionTypeGuidForeignAdditionalPostage         UNIQUEIDENTIFIER = '5e9dcb63-78ae-415a-9100-5a6d0c0f6d77'
+
+    -- Billing Transaction Status Ids
+    DECLARE @BillingTransactionStatusIdExcluded                         INT = 3 -- Excluded   
+
+    -- Locations
+    DECLARE @NashvilleLocationId                                        INT = 4 -- Nashville   
+
+    -- Remove Temporary Tables, also removes indexes
     IF OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails') IS NOT NULL
     BEGIN
     	DROP TABLE #QualifiedBillingActivityBatchCategoryDetails
@@ -72,12 +86,106 @@ BEGIN
         [BillingActivityBatchCategoryQuantity] [bigint] NOT NULL
     )
 
+    -- Determine custoemr id from invoice generation session key
+    SET @CustomerId = (
+        SELECT TOP 1 mc.CustomerID FROM dbo.LASS_Invoices i
+            INNER JOIN dbo.LASS_ClientConfigurations cc ON i.ClientConfigurationKey = cc.ClientConfigurationKey
+            INNER JOIN dbo.tblCustomers mc ON cc.MaestroAccountCode = mc.Account
+        WHERE i.InvoiceGenerationSessionKey = @InvoiceGenerationSessionKey)
+
+    -- Match line item calculator module to billing transaction guid
+    IF (@LineItemCalculatorModule = @PostageLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidPostage
+    END
+
+    IF (@LineItemCalculatorModule = @InternationalPostageLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidForeignPostage
+    END
+
+    IF (@LineItemCalculatorModule = @InternationalPostageCanadaLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidForeignPostage
+    END
+
+    IF (@LineItemCalculatorModule = @ForceMailSpecialHandlingPostageLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidProcessed -- no suitable guid for this transaction exists
+    END
+
+    IF (@LineItemCalculatorModule = @ForceMailPostageLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidPostage -- no suitable guid for this transaction exists either
+    END
+
+    IF (@LineItemCalculatorModule = @AdditionalPostageLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidAdditionalPostage
+    END
+
+    IF (@LineItemCalculatorModule = @AdditionalPostageInternationalLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidForeignAdditionalPostage
+    END
+
+    IF (@LineItemCalculatorModule = @LetterShopLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidLetterShop
+    END
+
+    IF (@LineItemCalculatorModule = @InsertsLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidInserts
+    END
+
+    IF (@LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidDuplex
+    END
+
+    IF (@LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule)
+    BEGIN
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidAdditionalPagesSx -- we don't classify plexing at this point 
+    END
+
+    -- Add warning if we cannot identify the customer id
+    IF (@CustomerId = -1)
+    BEGIN
+        SET @IsErrorState = 1
+        SET @InvoiceWarningMessage = 'Customer id could not be identified.'
+        
+        GOTO AddInvoiceWarningAndStop
+    END
+
     -- Add warning to invoice generation session if host system cannot be identified
     IF (@HostSystemId = 0)
     BEGIN
         SET @IsErrorState = 1
         SET @InvoiceWarningMessage = 'Line item host system could not be identified for delivery point data generation.'
 		
+        GOTO AddInvoiceWarningAndStop
+    END
+
+    -- Add warning if we cannot identify the billing transaction type guid
+    IF (@BillingTransactionTypeGuid = '00000000-0000-0000-0000-000000000000')
+    BEGIN
+        SET @IsErrorState = 1
+        SET @InvoiceWarningMessage = 'Cannot match line item calculator module ' + @LineItemCalculatorModule + ' to a billing transaction type guid.'
+        
+        GOTO AddInvoiceWarningAndStop
+    END
+    ELSE
+    BEGIN -- Set the billing transaction type id if we identified the billing transaction type guid
+        SET @BillingTransactionTypeId = (SELECT TOP 1 BillingTransactionTypeId FROM dbo.tblBillingTransactionTypes WHERE BillingTransactionTypeGuid = @BillingTransactionTypeGuid)
+    END
+
+    -- Add warning if we cannot identify the billing transaction type id
+    IF (@BillingTransactionTypeId = -1)
+    BEGIN
+        SET @IsErrorState = 1
+        SET @InvoiceWarningMessage = 'Cannot find billing transaction id for billing transaction type guid ' + @BillingTransactionTypeGuid
+        
         GOTO AddInvoiceWarningAndStop
     END
 
@@ -348,33 +456,149 @@ BEGIN
 		CREATE NONCLUSTERED INDEX IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId ON #QualifiedBillingActivityBatchCategoryDetails(DataStreamDetailId)
 	END
 
-    -- TODO: INSERT INTO BILLING TRANSACTION TABLE
+    DECLARE @BillingTransactionGuid UNIQUEIDENTIFIER = NEWID()
+
+    -- Insert billing transaction
+    INSERT INTO [LASS].[dbo].[tblBillingTransactions]
+    (
+    		 [BillingTransactionGuid]
+    		,[BillingTransactionTypeId]
+    		,[BillingTransactionStatusId]
+    		,[CustomerID]
+    		,[LocationID]
+    		,[CustomerLobID]
+    		,[UploadID]
+    		,[JobID]
+    		,[MaterialID]
+    		,[BillingGroup]
+    		,[TransactionDate]
+    		,[Quantity]
+    		,[PageGroup]
+    		,[UserAdded]
+    		,[DateAdded]
+    		,[UserEdited]
+    		,[DateEdited]
+    		,[IsActive]
+    		,[BillingGroupId]
+    		,[DataJobID]
+    )
+    VALUES
+    (
+    		 @BillingTransactionGuid
+    		,@BillingTransactionTypeId
+    		,@BillingTransactionStatusIdExcluded -- Use excluded to prevent further evaluation
+    		,@CustomerId
+    		,@NashvilleLocationId
+    		,null
+    		,null
+    		,null
+    		,null
+    		,null
+    		,GETDATE()
+    		,@InvoicedQuantity -- Set to # invoiced
+    		,null
+    		,CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR))
+    		,GETDATE()
+    		,null
+    		,null
+    		,1
+    		,null
+    		,null
+    )
+
+    -- Get billing transaction id
+    DECLARE @BillingTransactionId INT = (SELECT SCOPE_IDENTITY())
 
     -- Create BTDP data (LIS)
     IF(@HostSystemId = 1)
     BEGIN
+        INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
+        (
+        		 [BillingTransactionDeliveryPointGUID]
+        		,[BillingTransactionId]
+        		,[BillingTransactionGuid]
+        		,[City]
+        		,[StateRegion]
+        		,[PostalCode]
+        		,[CountryCode]
+        		,[DestinationCode]
+        		,[Quantity]
+        		,[DateAdded]
+        		,[DateEdited]
+        		,[UserAdded]
+        		,[UserEdited]
+        		,[IsActive]
+        )
         SELECT  
-            count (ldsd.DataStreamDetailId) as NumDetails,
+            NEWID(),
+            @BillingTransactionId,
+        	@BillingTransactionGuid,
+            UPPER(ldsd.LisCity),
+            UPPER(ldsd.LisState),
+            ldsd.LisZip,
+            null, -- country code???
+        	CASE WHEN ldsd.ForeignAddress = 1 THEN 'F' ELSE 'D' END,
+        	COUNT(ldsd.DataStreamDetailId),
+        	GETDATE(),
+        	null,
+        	CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
+        	null,
+        	1
+        FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
+            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+        GROUP BY 
             ldsd.LisCity,
             ldsd.LisState,
             ldsd.LisZip,
-            CASE WHEN ldsd.ForeignAddress = 1 THEN 'Yes' ELSE 'No' END AS ForeignAddress
+            ldsd.ForeignAddress
+        RETURN
+    END
+
+    -- Create BTDP data (LADS)
+    IF(@HostSystemId = 2)
+    BEGIN
+
+    INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
+        (
+        		 [BillingTransactionDeliveryPointGUID]
+        		,[BillingTransactionId]
+        		,[BillingTransactionGuid]
+        		,[City]
+        		,[StateRegion]
+        		,[PostalCode]
+        		,[CountryCode]
+        		,[DestinationCode]
+        		,[Quantity]
+        		,[DateAdded]
+        		,[DateEdited]
+        		,[UserAdded]
+        		,[UserEdited]
+        		,[IsActive]
+        )
+        SELECT  
+            NEWID(),
+            @BillingTransactionId,
+        	@BillingTransactionGuid,
+            UPPER(ldsd.City),
+            UPPER(ldsd.State),
+            ldsd.ZipCode,
+            null, -- country code???
+        	CASE WHEN ldsd.ForeignAddress = 1 THEN 'F' ELSE 'D' END,
+        	COUNT(ldsd.DataStreamDetailId),
+        	GETDATE(),
+        	null,
+        	CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
+        	null,
+        	1
         FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
-        INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd
-            ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
         GROUP BY 
             ldsd.LisCity,
             ldsd.LisState,
             ldsd.LisZip,
             ldsd.ForeignAddress
 
-        -- TODO RETURN
-    END
 
-
-    -- Create BTDP data (LADS)
-    IF(@HostSystemId = 2)
-    BEGIN
         SELECT  
             count (ldsd.DataStreamDetailId) as NumDetails,
             ldsd.City,
