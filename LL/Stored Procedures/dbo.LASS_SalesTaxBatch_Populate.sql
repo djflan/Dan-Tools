@@ -15,7 +15,7 @@ CREATE PROCEDURE [dbo].[LASS_SalesTaxBatch_Populate]
 	 @InvoiceGenerationSessionId		UNIQUEIDENTIFIER = NULL	
 	,@UserName		NVARCHAR(128)
 	,@ReturnCode	INT				OUTPUT
-    ,@ReturnMsg		NVARCHAR(256)	OUTPUT
+  ,@ReturnMsg		NVARCHAR(256)	OUTPUT
 )
 /*=========================================================
 NAME:             [dbo].[LASS_SalesTaxBatch_Populate]
@@ -47,7 +47,7 @@ BEGIN
     EXEC LASS.dbo.LASS_GenerateBillingTransactionData_LIS_LADS @InvoiceGenerationSessionId
 
     -- Creates sales tax batches for all platforms (LIS, LADS, and Maestro - was initially written for Maestro)
-	EXEC LASS.dbo.LASS_SalesTaxBatch_Maestro_Populate @InvoiceGenerationSessionId, @UserName, @ReturnCode output, @ReturnMsg output
+	  EXEC LASS.dbo.LASS_SalesTaxBatch_Maestro_Populate @InvoiceGenerationSessionId, @UserName, @ReturnCode output, @ReturnMsg output
 
 END
 

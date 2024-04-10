@@ -114,6 +114,14 @@ BEGIN
 			SELECT InvoiceLineItemKey, ROW_NUMBER() OVER (ORDER BY (InvoiceLineItemKey)) AS RowNum
 			FROM #NonServiceInvoiceLineItems) AS T
 		WHERE RowNum = @CurrentInvoiceLineItemRow)
+
+        -- Get the LineItemKey for the current row
+        DECLARE @LineItemKey BIGINT = (
+            SELECT LineItemKey
+        FROM (
+			SELECT LineItemKey, ROW_NUMBER() OVER (ORDER BY (InvoiceLineItemKey)) AS RowNum
+			FROM #NonServiceInvoiceLineItems) AS T
+		WHERE RowNum = @CurrentInvoiceLineItemRow)     
 	
 		-- Get the LineItemCalculatorModule for the current InvoiceLineItemKey
 		DECLARE @LineItemCalculatorModule NVARCHAR(128) = (
@@ -156,7 +164,7 @@ BEGIN
         IF (@HostSystemId != 0) 
         BEGIN
 		    -- Attempt to populate the billing transactions table and billing transaction delivery points for the current InvoiceLineItemKey
-		    EXEC LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS @InvoiceLineItemKey, @LineItemCalculatorModule, @HostSystemId
+		    EXEC LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS @InvoiceGenerationSessionKey, @InvoiceLineItemKey, @LineItemKey, @LineItemCalculatorModule, @HostSystemId
 		END
 
 		-- Increment the counter
