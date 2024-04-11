@@ -133,7 +133,7 @@ BEGIN
         -- Oddly enough, we don't actually store any information about which host system the billing activity batch
         -- data came from. Our best chance of identifying this is to infer it from the data stream details of the
         -- billing activity batch category (see below). Alternatively, you could maybe assume this given the
-        -- 'UserAdded' column for the batch it appears to be unique for LIS/LADS. But, in any case, here we are :)
+        -- 'UserAdded' column for the batch as it appears to be unique for LIS/LADS. But, in any case, here we are :)
 
         -- Determine host system
         DECLARE @HostSystemDataStreamDetailId UNIQUEIDENTIFIER = (

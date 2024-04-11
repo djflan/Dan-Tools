@@ -20,7 +20,7 @@ CREATE PROCEDURE [dbo].[LASS_GenerateBillingTransactionDeliveryPointData_LIS_LAD
 /*=========================================================
 NAME:           [dbo].[LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS]
 DESCRIPTION:    Generates billing delivery point data for LIS and LADS platforms based on
-                datstream details.
+                datastream details.
 
 MODIFICATIONS:
   AUTHOR        date        DESC
