@@ -38,7 +38,8 @@ BEGIN
     DECLARE @FoundLineItemCalculatorModule BIT = 0
     DECLARE @IsErrorState BIT = 0
     DECLARE @InvoiceWarningMessage NVARCHAR(4000) = ''
-    DECLARE @BillingTransactionTypeGuid UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000000'
+    DECLARE @EmptyGuid UNIQUEIDENTIFIER = 0x0
+    DECLARE @BillingTransactionTypeGuid UNIQUEIDENTIFIER = @EmptyGuid
     DECLARE @BillingTransactionTypeId INT = -1
     DECLARE @CustomerId INT = -1
 
@@ -168,7 +169,7 @@ BEGIN
     END
 
     -- Add warning if we cannot identify the billing transaction type guid
-    IF (@BillingTransactionTypeGuid = '00000000-0000-0000-0000-000000000000')
+    IF (@BillingTransactionTypeGuid = @EmptyGuid)
     BEGIN
         SET @IsErrorState = 1
         SET @InvoiceWarningMessage = 'Cannot match line item calculator module ' + @LineItemCalculatorModule + ' to a billing transaction type guid.'
@@ -177,14 +178,14 @@ BEGIN
     END
     ELSE
     BEGIN -- Set the billing transaction type id if we identified the billing transaction type guid
-        SET @BillingTransactionTypeId = (SELECT TOP 1 BillingTransactionTypeId FROM dbo.tblBillingTransactionTypes WHERE BillingTransactionTypeGuid = @BillingTransactionTypeGuid)
+        SET @BillingTransactionTypeId = (SELECT TOP 1 btt.BillingTransactionTypeId FROM dbo.tblBillingTransactionTypes btt WHERE btt.BillingTransactionTypeGuid = @BillingTransactionTypeGuid)
     END
 
     -- Add warning if we cannot identify the billing transaction type id
     IF (@BillingTransactionTypeId = -1)
     BEGIN
         SET @IsErrorState = 1
-        SET @InvoiceWarningMessage = 'Cannot find billing transaction id for billing transaction type guid ' + @BillingTransactionTypeGuid
+        SET @InvoiceWarningMessage = 'Cannot find billing transaction id for billing transaction type guid ' + CAST(@BillingTransactionTypeGuid as NVARCHAR(MAX))
         
         GOTO AddInvoiceWarningAndStop
     END
@@ -431,7 +432,7 @@ BEGIN
     IF (@FoundLineItemCalculatorModule = 0)
     BEGIN
         SET @IsErrorState = 1
-        SET @ErrorMessage = 'No btdp-generation line item calculator module match found for ' + @LineItemCalculatorModule + ' with host system id ' + @HostSystemId
+        SET @InvoiceWarningMessage = 'No btdp-generation line item calculator module match found for ' + @LineItemCalculatorModule + ' with host system id ' + @HostSystemId
 
         GOTO AddInvoiceWarningAndStop
     END
@@ -445,7 +446,7 @@ BEGIN
     IF (@IsQuantityMatch = 0)
     BEGIN
         SET @IsErrorState = 1
-        SET @ErrorMessage = 'Calculated quantity (' + CAST(@CalculatedQuantity AS VARCHAR) + ') does not match invoiced quantity (' + CAST(@InvoicedQuantity AS VARCHAR) + ')'
+        SET @InvoiceWarningMessage = 'Calculated quantity (' + CAST(@CalculatedQuantity AS VARCHAR) + ') does not match invoiced quantity (' + CAST(@InvoicedQuantity AS VARCHAR) + ')'
 
         GOTO AddInvoiceWarningAndStop
     END

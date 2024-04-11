@@ -31,6 +31,12 @@ AS
 BEGIN
     SET NOCOUNT ON
 
+    -- Get invoice generation session key
+    DECLARE @InvoiceGenerationSessionKey BIGINT = (
+        SELECT TOP 1 ligs.InvoiceGenerationSessionKey 
+        FROM dbo.LASS_InvoiceGenerationSessions ligs 
+        WHERE ligs.InvoiceGenerationSessionId = @InvoiceGenerationSessionId)
+
     -- Remove Temporary Tables
     IF OBJECT_ID('tempdb..#NonServiceInvoiceLineItems') IS NOT NULL
     BEGIN
@@ -63,28 +69,28 @@ BEGIN
            lili.LineItemKey,
            lstc.TaxCode,
            lli.SalesTaxItemCategory
-    FROM LASS_InvoiceGenerationSessions ligs (NOLOCK)
+    FROM LASS_InvoiceGenerationSessions ligs
         -- Join invoices generation session to invoices
-        INNER JOIN LASS_Invoices i (NOLOCK)
+        INNER JOIN LASS_Invoices i
             ON ligs.InvoiceGenerationSessionKey = i.InvoiceGenerationSessionKey
         -- Gets invoice line items
-        INNER JOIN LASS_InvoiceLineItems lili (NOLOCK)
+        INNER JOIN LASS_InvoiceLineItems lili
             ON lili.InvoiceKey = i.InvoiceKey
         -- Get lass line items
-        INNER JOIN LASS_LineItems lli (NOLOCK)
+        INNER JOIN LASS_LineItems lli
             ON lli.LineItemKey = lili.LineItemKey
         -- Get invoice line item billing activities
-        INNER JOIN LASS_InvoiceLineItemBillingActivities liliba (NOLOCK)
+        INNER JOIN LASS_InvoiceLineItemBillingActivities liliba
             ON lili.InvoiceLineItemKey = liliba.InvoiceLineItemKey
                AND liliba.IncludeInSalesTaxBatch = 1 -- Include as ST
         -- Join Sales Tax Codes
-        INNER JOIN LASS_SalesTaxCodes (NOLOCK) lstc
+        INNER JOIN LASS_SalesTaxCodes lstc
             ON lstc.SalesTaxCodeKey = lli.SalesTaxCodeKey
-    WHERE ligs.InvoiceGenerationSessionKey = @InvoiceGenerationSessionKey                   -- Filter by session
+    WHERE ligs.InvoiceGenerationSessionKey = @InvoiceGenerationSessionKey                    -- Filter by session
 	AND lli.UseCustomerTaxAddress = 0                                                       -- Exclude service lines (Generated later)
     AND NOT (EXISTS(                                                                        -- Exclude lines with btdp data                                
-            SELECT * FROM LASS_BillingActivityBatchCategoryDetails (NOLOCK) lbabcd2
-                INNER JOIN tblBillingTransactionDeliveryPoints (NOLOCK) btdp
+            SELECT * FROM LASS_BillingActivityBatchCategoryDetails lbabcd2
+                INNER JOIN tblBillingTransactionDeliveryPoints btdp
                     ON btdp.BillingTransactionGuid = lbabcd2.BillingTransactionGuid AND btdp.IsActive = 1
             WHERE lbabcd2.BillingActivityBatchCategoryKey = liliba.BillingActivityBatchCategoryKey)
         )
@@ -120,8 +126,8 @@ BEGIN
 		-- Get the LineItemCalculatorModule for the current InvoiceLineItemKey
 		DECLARE @LineItemCalculatorModule NVARCHAR(128) = (
 			SELECT li.LineItemCalculatorModule
-				FROM LASS_InvoiceLineItems (NOLOCK) lili
-			INNER JOIN LASS_LineItems (NOLOCK) li
+				FROM LASS_InvoiceLineItems lili
+			INNER JOIN LASS_LineItems li
 				ON lili.LineItemKey = li.LineItemKey
 		WHERE lili.InvoiceLineItemKey = @InvoiceLineItemKey)
 		
@@ -134,21 +140,21 @@ BEGIN
 		DECLARE @HostSystemDataStreamDetailId UNIQUEIDENTIFIER = (
 		SELECT TOP 1 
 			lbabcd.DataStreamDetailId -- all billing activity batch category details are from a single source system
-		FROM LASS_InvoiceLineItemBillingActivities (NOLOCK) liliba
-			INNER JOIN LASS_BillingActivityBatchCategories (NOLOCK) lbabc
+		FROM LASS_InvoiceLineItemBillingActivities liliba
+			INNER JOIN LASS_BillingActivityBatchCategories lbabc
 				ON liliba.BillingActivityBatchCategoryKey = lbabc.BillingActivityBatchCategoryKey
-			INNER JOIN LASS_BillingActivityBatchCategoryDetails (NOLOCK) lbabcd
+			INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd
 				ON lbabc.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
 		WHERE liliba.InvoiceLineItemKey = @InvoiceLineItemKey)
 	
 		DECLARE @HostSystemId INT = 0;  -- Unknown / NotSet
 	
-		IF @HostSystemId = 0 AND EXISTS ( SELECT * FROM LetterShop.dbo.LIS_DataStreamDetails (NOLOCK) WHERE DataStreamDetailId = @HostSystemDataStreamDetailId)
+		IF @HostSystemId = 0 AND EXISTS ( SELECT * FROM LetterShop.dbo.LIS_DataStreamDetails WHERE DataStreamDetailId = @HostSystemDataStreamDetailId)
 		BEGIN
 			SET @HostSystemId = 1       -- LIS
 		END
 	
-		IF @HostSystemId = 0 AND EXISTS ( SELECT * FROM LADS.dbo.LADS_DataStreamDetails (NOLOCK) WHERE DataStreamDetailId = @HostSystemDataStreamDetailId)
+		IF @HostSystemId = 0 AND EXISTS ( SELECT * FROM LADS.dbo.LADS_DataStreamDetails WHERE DataStreamDetailId = @HostSystemDataStreamDetailId)
 		BEGIN
 			SET @HostSystemId = 2       -- LADS
 		END
