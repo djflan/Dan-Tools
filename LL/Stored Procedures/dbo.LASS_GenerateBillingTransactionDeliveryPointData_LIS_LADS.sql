@@ -87,7 +87,7 @@ BEGIN
         [BillingActivityBatchCategoryQuantity] [bigint] NOT NULL
     )
 
-    -- Determine custoemr id from invoice generation session key
+    -- Determine customer id from invoice generation session key
     SET @CustomerId = (
         SELECT TOP 1 mc.CustomerID FROM dbo.LASS_Invoices i
             INNER JOIN dbo.LASS_ClientConfigurations cc ON i.ClientConfigurationKey = cc.ClientConfigurationKey
@@ -185,7 +185,7 @@ BEGIN
     IF (@BillingTransactionTypeId = -1)
     BEGIN
         SET @IsErrorState = 1
-        SET @InvoiceWarningMessage = 'Cannot find billing transaction id for billing transaction type guid ' + CAST(@BillingTransactionTypeGuid as NVARCHAR(MAX))
+        SET @InvoiceWarningMessage = 'Cannot find billing transaction type id for billing transaction type guid ' + CAST(@BillingTransactionTypeGuid as NVARCHAR(MAX))
 
         GOTO AddInvoiceWarningAndStop
     END
@@ -432,7 +432,7 @@ BEGIN
     IF (@FoundLineItemCalculatorModule = 0)
     BEGIN
         SET @IsErrorState = 1
-        SET @InvoiceWarningMessage = 'No btdp-generation line item calculator module match found for ' + @LineItemCalculatorModule + ' with host system id ' + @HostSystemId
+        SET @InvoiceWarningMessage = 'No btdpd-generation line item calculator module match found for ' + @LineItemCalculatorModule + ' with host system id ' + @HostSystemId
 
         GOTO AddInvoiceWarningAndStop
     END
