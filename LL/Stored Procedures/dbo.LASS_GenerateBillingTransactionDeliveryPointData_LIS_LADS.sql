@@ -15,13 +15,13 @@ CREATE PROCEDURE [dbo].[LASS_GenerateBillingTransactionDeliveryPointData_LIS_LAD
    ,@InvoiceLineItemKey             BIGINT
    ,@LineItemKey                    BIGINT
    ,@LineItemCalculatorModule       NVARCHAR(256)
-   ,@HostSystemId				    INT
+   ,@HostSystemId                   INT
 )
 /*=========================================================
 NAME:           [dbo].[LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS]
 DESCRIPTION:    Generates billing delivery point data for LIS and LADS platforms based on
                 datstream details.
-				  
+
 MODIFICATIONS:
   AUTHOR        date        DESC
   dflanigan     20240310    initial version
@@ -69,15 +69,15 @@ BEGIN
     DECLARE @BillingTransactionTypeGuidForeignAdditionalPostage         UNIQUEIDENTIFIER = '5e9dcb63-78ae-415a-9100-5a6d0c0f6d77'
 
     -- Billing Transaction Status Ids
-    DECLARE @BillingTransactionStatusIdExcluded                         INT = 3 -- Excluded   
+    DECLARE @BillingTransactionStatusIdExcluded                         INT = 3 -- Excluded
 
     -- Locations
-    DECLARE @NashvilleLocationId                                        INT = 4 -- Nashville   
+    DECLARE @NashvilleLocationId                                        INT = 4 -- Nashville
 
     -- Remove Temporary Tables, also removes indexes
     IF OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails') IS NOT NULL
     BEGIN
-    	DROP TABLE #QualifiedBillingActivityBatchCategoryDetails
+        DROP TABLE #QualifiedBillingActivityBatchCategoryDetails
     END
 
     -- Qualified Billing Activity Batch Category Details and Amounts
@@ -147,7 +147,7 @@ BEGIN
 
     IF (@LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule)
     BEGIN
-        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidAdditionalPagesSx -- we don't classify plexing at this point 
+        SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidAdditionalPagesSx -- we don't classify plexing at this point
     END
 
     -- Add warning if we cannot identify the customer id
@@ -155,7 +155,7 @@ BEGIN
     BEGIN
         SET @IsErrorState = 1
         SET @InvoiceWarningMessage = 'Customer id could not be identified.'
-        
+
         GOTO AddInvoiceWarningAndStop
     END
 
@@ -164,7 +164,7 @@ BEGIN
     BEGIN
         SET @IsErrorState = 1
         SET @InvoiceWarningMessage = 'Line item host system could not be identified for delivery point data generation.'
-		
+
         GOTO AddInvoiceWarningAndStop
     END
 
@@ -173,7 +173,7 @@ BEGIN
     BEGIN
         SET @IsErrorState = 1
         SET @InvoiceWarningMessage = 'Cannot match line item calculator module ' + @LineItemCalculatorModule + ' to a billing transaction type guid.'
-        
+
         GOTO AddInvoiceWarningAndStop
     END
     ELSE
@@ -186,16 +186,16 @@ BEGIN
     BEGIN
         SET @IsErrorState = 1
         SET @InvoiceWarningMessage = 'Cannot find billing transaction id for billing transaction type guid ' + CAST(@BillingTransactionTypeGuid as NVARCHAR(MAX))
-        
+
         GOTO AddInvoiceWarningAndStop
     END
 
     IF (@HostSystemId = 1) -- Begin Host System Specific Logic (LIS)
-	BEGIN
-        IF  (@LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR 
+    BEGIN
+        IF  (@LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR
             (@LineItemCalculatorModule = @AdditionalPostageLineItemCalculatorModule) OR
-            (@LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule) OR 
-            (@LineItemCalculatorModule = @InsertsLineItemCalculatorModule) OR 
+            (@LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule) OR
+            (@LineItemCalculatorModule = @InsertsLineItemCalculatorModule) OR
             (@LineItemCalculatorModule = @DuplexLineItemCalculatorModule)
         BEGIN
             INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
@@ -320,16 +320,16 @@ BEGIN
 
             SET @FoundLineItemCalculatorModule = 1
         END
-	END -- END Host System Specific Logic (LIS)
+    END -- END Host System Specific Logic (LIS)
 
     -- Host System Specific Logic (LADS)
     IF (@HostSystemId = 2)
     BEGIN
 
-        IF  (@LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR 
-            (@LineItemCalculatorModule = @PostageLineItemCalculatorModule) OR 
+        IF  (@LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR
+            (@LineItemCalculatorModule = @PostageLineItemCalculatorModule) OR
             (@LineItemCalculatorModule = @AdditionalPostageLineItemCalculatorModule) OR
-            (@LineItemCalculatorModule = @InsertsLineItemCalculatorModule) 
+            (@LineItemCalculatorModule = @InsertsLineItemCalculatorModule)
         BEGIN
             INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
                 [BillingActivityBatchCategoryDetailKey],
@@ -401,7 +401,7 @@ BEGIN
             SET @FoundLineItemCalculatorModule = 1
         END
 
-        IF (@LineItemCalculatorModule = @ForceMailPostageLineItemCalculatorModule) OR 
+        IF (@LineItemCalculatorModule = @ForceMailPostageLineItemCalculatorModule) OR
            (@LineItemCalculatorModule = @ForceMailSpecialHandlingPostageLineItemCalculatorModule)
         BEGIN
             INSERT INTO #QualifiedBillingActivityBatchCategoryDetails (
@@ -452,59 +452,59 @@ BEGIN
     END
 
     -- Create index for table
-    IF NOT EXISTS(SELECT name FROM tempdb.sys.indexes WHERE name='IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId' AND object_id = OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails'))							
-	BEGIN
-		CREATE NONCLUSTERED INDEX IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId ON #QualifiedBillingActivityBatchCategoryDetails(DataStreamDetailId)
-	END
+    IF NOT EXISTS(SELECT name FROM tempdb.sys.indexes WHERE name='IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId' AND object_id = OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails'))
+    BEGIN
+        CREATE NONCLUSTERED INDEX IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId ON #QualifiedBillingActivityBatchCategoryDetails(DataStreamDetailId)
+    END
 
     DECLARE @BillingTransactionGuid UNIQUEIDENTIFIER = NEWID()
 
     -- Insert billing transaction
     INSERT INTO [LASS].[dbo].[tblBillingTransactions]
     (
-    		 [BillingTransactionGuid]
-    		,[BillingTransactionTypeId]
-    		,[BillingTransactionStatusId]
-    		,[CustomerID]
-    		,[LocationID]
-    		,[CustomerLobID]
-    		,[UploadID]
-    		,[JobID]
-    		,[MaterialID]
-    		,[BillingGroup]
-    		,[TransactionDate]
-    		,[Quantity]
-    		,[PageGroup]
-    		,[UserAdded]
-    		,[DateAdded]
-    		,[UserEdited]
-    		,[DateEdited]
-    		,[IsActive]
-    		,[BillingGroupId]
-    		,[DataJobID]
+         [BillingTransactionGuid]
+        ,[BillingTransactionTypeId]
+        ,[BillingTransactionStatusId]
+        ,[CustomerID]
+        ,[LocationID]
+        ,[CustomerLobID]
+        ,[UploadID]
+        ,[JobID]
+        ,[MaterialID]
+        ,[BillingGroup]
+        ,[TransactionDate]
+        ,[Quantity]
+        ,[PageGroup]
+        ,[UserAdded]
+        ,[DateAdded]
+        ,[UserEdited]
+        ,[DateEdited]
+        ,[IsActive]
+        ,[BillingGroupId]
+        ,[DataJobID]
     )
     VALUES
     (
-    		 @BillingTransactionGuid
-    		,@BillingTransactionTypeId
-    		,@BillingTransactionStatusIdExcluded -- Use excluded to prevent further evaluation
-    		,@CustomerId
-    		,@NashvilleLocationId
-    		,null
-    		,null
-    		,null
-    		,null
-    		,null
-    		,GETDATE()
-    		,@InvoicedQuantity -- Set to # invoiced
-    		,null
-    		,CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR))
-    		,GETDATE()
-    		,null
-    		,null
-    		,1
-    		,null
-    		,null
+         @BillingTransactionGuid
+        ,@BillingTransactionTypeId
+        ,@BillingTransactionStatusIdExcluded -- Use excluded to prevent further evaluation
+        ,@CustomerId
+        ,@NashvilleLocationId
+        ,null
+        ,null
+        ,null
+        ,null
+        ,null
+        ,GETDATE()
+        ,@InvoicedQuantity -- Set to # invoiced
+        ,null
+        ,CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR))
+        ,GETDATE()
+        ,null
+        ,null
+        ,1
+        ,null
+        ,null
     )
 
     -- Get billing transaction id
@@ -515,40 +515,40 @@ BEGIN
     BEGIN
         INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
         (
-        		 [BillingTransactionDeliveryPointGUID]
-        		,[BillingTransactionId]
-        		,[BillingTransactionGuid]
-        		,[City]
-        		,[StateRegion]
-        		,[PostalCode]
-        		,[CountryCode]
-        		,[DestinationCode]
-        		,[Quantity]
-        		,[DateAdded]
-        		,[DateEdited]
-        		,[UserAdded]
-        		,[UserEdited]
-        		,[IsActive]
+             [BillingTransactionDeliveryPointGUID]
+            ,[BillingTransactionId]
+            ,[BillingTransactionGuid]
+            ,[City]
+            ,[StateRegion]
+            ,[PostalCode]
+            ,[CountryCode]
+            ,[DestinationCode]
+            ,[Quantity]
+            ,[DateAdded]
+            ,[DateEdited]
+            ,[UserAdded]
+            ,[UserEdited]
+            ,[IsActive]
         )
-        SELECT  
+        SELECT
             NEWID(),
             @BillingTransactionId,
-        	@BillingTransactionGuid,
+            @BillingTransactionGuid,
             UPPER(ldsd.LisCity),
             UPPER(ldsd.LisState),
             ldsd.LisZip,
             null,
-        	CASE WHEN ldsd.ForeignAddress = 1 THEN 'F' ELSE 'D' END,
-        	COUNT(ldsd.DataStreamDetailId),
-        	GETDATE(),
-        	null,
-        	CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
-        	null,
-        	1
+            CASE WHEN ldsd.ForeignAddress = 1 THEN 'F' ELSE 'D' END,
+            COUNT(ldsd.DataStreamDetailId),
+            GETDATE(),
+            null,
+            CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
+            null,
+            1
         FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
-            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd 
+            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd
                 ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
-        GROUP BY 
+        GROUP BY
             ldsd.LisCity,
             ldsd.LisState,
             ldsd.LisZip,
@@ -561,40 +561,40 @@ BEGIN
     BEGIN
         INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
         (
-        	 [BillingTransactionDeliveryPointGUID]
-        	,[BillingTransactionId]
-        	,[BillingTransactionGuid]
-        	,[City]
-        	,[StateRegion]
-        	,[PostalCode]
-        	,[CountryCode]
-        	,[DestinationCode]
-        	,[Quantity]
-        	,[DateAdded]
-        	,[DateEdited]
-        	,[UserAdded]
-        	,[UserEdited]
-        	,[IsActive]
+             [BillingTransactionDeliveryPointGUID]
+            ,[BillingTransactionId]
+            ,[BillingTransactionGuid]
+            ,[City]
+            ,[StateRegion]
+            ,[PostalCode]
+            ,[CountryCode]
+            ,[DestinationCode]
+            ,[Quantity]
+            ,[DateAdded]
+            ,[DateEdited]
+            ,[UserAdded]
+            ,[UserEdited]
+            ,[IsActive]
         )
         SELECT
             NEWID(),
             @BillingTransactionId,
-        	@BillingTransactionGuid,
+            @BillingTransactionGuid,
             UPPER(ldsd.City),
             UPPER(ldsd.State),
             ldsd.ZipCode,
             null,
-        	CASE WHEN ldsd.IsForeignMailed = 1 THEN 'F' ELSE 'D' END,
-        	COUNT(ldsd.DataStreamDetailId),
-        	GETDATE(),
-        	null,
-        	CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
-        	null,
-        	1
+            CASE WHEN ldsd.IsForeignMailed = 1 THEN 'F' ELSE 'D' END,
+            COUNT(ldsd.DataStreamDetailId),
+            GETDATE(),
+            null,
+            CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
+            null,
+            1
         FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
             INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd
                 ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
-        GROUP BY 
+        GROUP BY
             ldsd.City,
             ldsd.State,
             ldsd.ZipCode,
@@ -607,35 +607,35 @@ BEGIN
         IF (@IsErrorState = 1)
         BEGIN
             INSERT INTO [LASS].[dbo].[LASS_InvoiceWarnings] (
-	    	     [InvoiceWarningId]
-	    	    ,[InvoiceGenerationSessionKey]
-	    	    ,[LineItemKey]
-	    	    ,[InvoiceWarningMessage]
-	    	    ,[InvoiceLineItemGroupKey]
-	    	    ,[InvoiceLineHeaderKey]
-	    	    ,[WarningResolved]
-	    	    ,[WarningResolutionDate]
-	    	    ,[WarningResolutionDescription]
-	    	    ,[UserAdded]
-	    	    ,[DateAdded]
-	    	    ,[UserEdited]
-	    	    ,[DateEdited]
-	    	    ,[IsActive])
+                 [InvoiceWarningId]
+                ,[InvoiceGenerationSessionKey]
+                ,[LineItemKey]
+                ,[InvoiceWarningMessage]
+                ,[InvoiceLineItemGroupKey]
+                ,[InvoiceLineHeaderKey]
+                ,[WarningResolved]
+                ,[WarningResolutionDate]
+                ,[WarningResolutionDescription]
+                ,[UserAdded]
+                ,[DateAdded]
+                ,[UserEdited]
+                ,[DateEdited]
+                ,[IsActive])
             VALUES (
-	    	     NEWID()
-	    	    ,@InvoiceGenerationSessionKey
-	    	    ,@LineItemKey
-	    	    ,@InvoiceWarningMessage
-	    	    ,null
-	    	    ,null
-	    	    ,0
-	    	    ,null
-	    	    ,null
-	    	    ,'lass-ll-btdp-gen'
-	    	    ,GETDATE()
-	    	    ,null
-	    	    ,null
-	    	    ,1)
+                 NEWID()
+                ,@InvoiceGenerationSessionKey
+                ,@LineItemKey
+                ,@InvoiceWarningMessage
+                ,null
+                ,null
+                ,0
+                ,null
+                ,null
+                ,'lass-ll-btdp-gen'
+                ,GETDATE()
+                ,null
+                ,null
+                ,1)
             RETURN
         END
     END
