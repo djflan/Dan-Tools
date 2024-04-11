@@ -536,7 +536,7 @@ BEGIN
             UPPER(ldsd.LisCity),
             UPPER(ldsd.LisState),
             ldsd.LisZip,
-            null, -- country code???
+            null,
         	CASE WHEN ldsd.ForeignAddress = 1 THEN 'F' ELSE 'D' END,
         	COUNT(ldsd.DataStreamDetailId),
         	GETDATE(),
@@ -545,7 +545,8 @@ BEGIN
         	null,
         	1
         FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
-            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd 
+                ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
         GROUP BY 
             ldsd.LisCity,
             ldsd.LisState,
@@ -557,33 +558,32 @@ BEGIN
     -- Create BTDP data (LADS)
     IF(@HostSystemId = 2)
     BEGIN
-
-    INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
+        INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
         (
-        		 [BillingTransactionDeliveryPointGUID]
-        		,[BillingTransactionId]
-        		,[BillingTransactionGuid]
-        		,[City]
-        		,[StateRegion]
-        		,[PostalCode]
-        		,[CountryCode]
-        		,[DestinationCode]
-        		,[Quantity]
-        		,[DateAdded]
-        		,[DateEdited]
-        		,[UserAdded]
-        		,[UserEdited]
-        		,[IsActive]
+        	 [BillingTransactionDeliveryPointGUID]
+        	,[BillingTransactionId]
+        	,[BillingTransactionGuid]
+        	,[City]
+        	,[StateRegion]
+        	,[PostalCode]
+        	,[CountryCode]
+        	,[DestinationCode]
+        	,[Quantity]
+        	,[DateAdded]
+        	,[DateEdited]
+        	,[UserAdded]
+        	,[UserEdited]
+        	,[IsActive]
         )
-        SELECT  
+        SELECT
             NEWID(),
             @BillingTransactionId,
         	@BillingTransactionGuid,
             UPPER(ldsd.City),
             UPPER(ldsd.State),
             ldsd.ZipCode,
-            null, -- country code???
-        	CASE WHEN ldsd.ForeignAddress = 1 THEN 'F' ELSE 'D' END,
+            null,
+        	CASE WHEN ldsd.IsForeignMailed = 1 THEN 'F' ELSE 'D' END,
         	COUNT(ldsd.DataStreamDetailId),
         	GETDATE(),
         	null,
@@ -591,30 +591,14 @@ BEGIN
         	null,
         	1
         FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
-            INNER JOIN LetterShop.dbo.LIS_DataStreamDetails ldsd ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
-        GROUP BY 
-            ldsd.LisCity,
-            ldsd.LisState,
-            ldsd.LisZip,
-            ldsd.ForeignAddress
-
-
-        SELECT  
-            count (ldsd.DataStreamDetailId) as NumDetails,
-            ldsd.City,
-            ldsd.State,
-            ldsd.ZipCode
-            --ldsd.LisAddressCountry
-        FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
-        INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd
-            ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
+            INNER JOIN LADS.dbo.LADS_DataStreamDetails ldsd
+                ON qbabcd.DataStreamDetailId = ldsd.DataStreamDetailId
         GROUP BY 
             ldsd.City,
             ldsd.State,
-            ldsd.ZipCode
-            --ldsd.LisAddressCountry --TODO: Figure out country for LADS
-
-        -- TODO RETURN
+            ldsd.ZipCode,
+            ldsd.IsForeignMailed
+        RETURN
     END
 
     AddInvoiceWarningAndStop:
@@ -651,7 +635,6 @@ BEGIN
 	    	    ,null
 	    	    ,null
 	    	    ,1)
-
             RETURN
         END
     END
