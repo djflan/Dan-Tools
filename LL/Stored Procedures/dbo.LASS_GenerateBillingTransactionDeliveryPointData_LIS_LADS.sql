@@ -457,7 +457,13 @@ BEGIN
         CREATE NONCLUSTERED INDEX IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId ON #QualifiedBillingActivityBatchCategoryDetails(DataStreamDetailId)
     END
 
+    -- Create billing transaction guid
     DECLARE @BillingTransactionGuid UNIQUEIDENTIFIER = NEWID()
+    DECLARE @UserAdded VARCHAR(MAX) = (SELECT CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)))
+
+    -- Create a unique user to ensure that the billing transaction id is unique
+    DECLARE @UniqueBillingTransactionUserGuid UNIQUEIDENTIFIER = NEWID()
+    DECLARE @BillingTransactionUserAdded VARCHAR(MAX) = (SELECt CONCAT(@UserAdded,'|',CAST(@UniqueBillingTransactionUserGuid AS VARCHAR)))
 
     -- Insert billing transaction (Remote)
     INSERT INTO [LASS].[dbo].[tblBillingTransactionsRemote]
@@ -498,7 +504,7 @@ BEGIN
         ,GETDATE()
         ,@InvoicedQuantity -- Set to # invoiced
         ,null
-        ,CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR))
+        ,@BillingTransactionUserAdded
         ,GETDATE()
         ,null
         ,null
@@ -507,7 +513,8 @@ BEGIN
         ,null
     )
 
-    DECLARE @BillingTransactionId INT = (SELECT SCOPE_IDENTITY())
+    -- Get billing transaction id from last insert
+    DECLARE @BillingTransactionId INT = (SELECT TOP 1 BillingTransactionId FROM [LASS].[dbo].[tblBillingTransactionsRemote] WHERE UserAdded = @BillingTransactionUserAdded ORDER BY BillingTransactionId DESC)
 
     -- Insert billing transaction (LASS)
     INSERT INTO [LASS].[dbo].[tblBillingTransactions]
@@ -550,7 +557,7 @@ BEGIN
         ,GETDATE()
         ,@InvoicedQuantity -- Set to # invoiced
         ,null
-        ,CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR))
+        ,@BillingTransactionUserAdded
         ,GETDATE()
         ,null
         ,null
@@ -591,7 +598,7 @@ BEGIN
             COUNT(ldsd.DataStreamDetailId),
             GETDATE(),
             null,
-            CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
+            @BillingTransactionUserAdded,
             null,
             1
         FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
@@ -637,7 +644,7 @@ BEGIN
             COUNT(ldsd.DataStreamDetailId),
             GETDATE(),
             null,
-            CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)),
+            @BillingTransactionUserAdded,
             null,
             1
         FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd
@@ -680,7 +687,7 @@ BEGIN
                 ,0
                 ,null
                 ,null
-                ,'lass-ll-btdp-gen'
+                ,@BillingTransactionUserAdded
                 ,GETDATE()
                 ,null
                 ,null
@@ -689,3 +696,4 @@ BEGIN
         END
     END
 END
+GO
