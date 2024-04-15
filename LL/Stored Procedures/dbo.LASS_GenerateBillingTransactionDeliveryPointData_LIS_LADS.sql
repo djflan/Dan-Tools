@@ -459,9 +459,9 @@ BEGIN
 
     DECLARE @BillingTransactionGuid UNIQUEIDENTIFIER = NEWID()
 
-    -- Insert billing transaction
-    INSERT INTO [LASS].[dbo].[tblBillingTransactions]
-    (
+    -- Insert billing transaction (Remote)
+    INSERT INTO [LASS].[dbo].[tblBillingTransactionsRemote]
+    (   
          [BillingTransactionGuid]
         ,[BillingTransactionTypeId]
         ,[BillingTransactionStatusId]
@@ -507,8 +507,57 @@ BEGIN
         ,null
     )
 
-    -- Get billing transaction id
     DECLARE @BillingTransactionId INT = (SELECT SCOPE_IDENTITY())
+
+    -- Insert billing transaction (LASS)
+    INSERT INTO [LASS].[dbo].[tblBillingTransactions]
+    (
+         [BillingTransactionId]
+        ,[BillingTransactionGuid]
+        ,[BillingTransactionTypeId]
+        ,[BillingTransactionStatusId]
+        ,[CustomerID]
+        ,[LocationID]
+        ,[CustomerLobID]
+        ,[UploadID]
+        ,[JobID]
+        ,[MaterialID]
+        ,[BillingGroup]
+        ,[TransactionDate]
+        ,[Quantity]
+        ,[PageGroup]
+        ,[UserAdded]
+        ,[DateAdded]
+        ,[UserEdited]
+        ,[DateEdited]
+        ,[IsActive]
+        ,[BillingGroupId]
+        ,[DataJobID]
+    )
+    VALUES
+    (
+         @BillingTransactionId
+        ,@BillingTransactionGuid
+        ,@BillingTransactionTypeId
+        ,@BillingTransactionStatusIdExcluded -- Use excluded to prevent further evaluation
+        ,@CustomerId
+        ,@NashvilleLocationId
+        ,null
+        ,null
+        ,null
+        ,null
+        ,null
+        ,GETDATE()
+        ,@InvoicedQuantity -- Set to # invoiced
+        ,null
+        ,CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR))
+        ,GETDATE()
+        ,null
+        ,null
+        ,1
+        ,null
+        ,null
+    )
 
     -- Create BTDP data (LIS)
     IF(@HostSystemId = 1)
