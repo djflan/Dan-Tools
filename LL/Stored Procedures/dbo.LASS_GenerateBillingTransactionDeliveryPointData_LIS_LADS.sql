@@ -459,11 +459,10 @@ BEGIN
 
     -- Create billing transaction guid
     DECLARE @BillingTransactionGuid UNIQUEIDENTIFIER = NEWID()
-    DECLARE @UserAdded VARCHAR(MAX) = (SELECT CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR)))
 
     -- Create a unique user to ensure that the billing transaction id is unique
     DECLARE @UniqueBillingTransactionUserGuid UNIQUEIDENTIFIER = NEWID()
-    DECLARE @BillingTransactionUserAdded VARCHAR(MAX) = (SELECt CONCAT(@UserAdded,'|',CAST(@UniqueBillingTransactionUserGuid AS VARCHAR)))
+    DECLARE @BillingTransactionUserAdded VARCHAR(MAX) = (SELECT CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR),'|',CAST(@UniqueBillingTransactionUserGuid AS VARCHAR(MAX))))
 
     -- Insert billing transaction (Remote)
     INSERT INTO [LASS].[dbo].[tblBillingTransactionsRemote]
