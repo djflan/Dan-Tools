@@ -5,7 +5,7 @@ DECLARE @ClientConfigKey INT = 13 --13
 DECLARE @InvoiceGenerationSessionKey INT = 134940 --127867
 DECLARE @FindClients BIT = 0
 DECLARE @LisActiveClients BIT = 0
-DECLARE @FindInvoices BIT = 0
+DECLARE @FindInvoices BIT = 1
 
 IF (@FindInvoices = 0) AND (@FindClients = 0) AND (@InvoiceGenerationSessionKey IS NOT NULL)
 BEGIN
@@ -88,6 +88,7 @@ BEGIN
            li.ClientConfigurationKey,
            li.InvoiceBillingDate,
            li.DateAdded,
+           li.UserAdded,
            li.DateEdited,
            li.IsActive
     FROM LASS_Invoices (NOLOCK) li
