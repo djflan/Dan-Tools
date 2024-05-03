@@ -515,60 +515,10 @@ BEGIN
     -- Get billing transaction id from last insert
     DECLARE @BillingTransactionId INT = (SELECT TOP 1 BillingTransactionId FROM [LASS].[dbo].[tblBillingTransactionsRemote] WHERE UserAdded = @BillingTransactionUserAdded ORDER BY BillingTransactionId DESC)
 
-    -- Insert billing transaction (LASS)
-    INSERT INTO [LASS].[dbo].[tblBillingTransactions]
-    (
-         [BillingTransactionId]
-        ,[BillingTransactionGuid]
-        ,[BillingTransactionTypeId]
-        ,[BillingTransactionStatusId]
-        ,[CustomerID]
-        ,[LocationID]
-        ,[CustomerLobID]
-        ,[UploadID]
-        ,[JobID]
-        ,[MaterialID]
-        ,[BillingGroup]
-        ,[TransactionDate]
-        ,[Quantity]
-        ,[PageGroup]
-        ,[UserAdded]
-        ,[DateAdded]
-        ,[UserEdited]
-        ,[DateEdited]
-        ,[IsActive]
-        ,[BillingGroupId]
-        ,[DataJobID]
-    )
-    VALUES
-    (
-         @BillingTransactionId
-        ,@BillingTransactionGuid
-        ,@BillingTransactionTypeId
-        ,@BillingTransactionStatusIdExcluded -- Use excluded to prevent further evaluation
-        ,@CustomerId
-        ,@NashvilleLocationId
-        ,null
-        ,null
-        ,null
-        ,null
-        ,null
-        ,GETDATE()
-        ,@InvoicedQuantity -- Set to # invoiced
-        ,null
-        ,@BillingTransactionUserAdded
-        ,GETDATE()
-        ,null
-        ,null
-        ,1
-        ,null
-        ,null
-    )
-
-    -- Create BTDP data (LIS)
+    -- Create BTDP data (LIS) - Remote
     IF(@HostSystemId = 1)
     BEGIN
-        INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
+        INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote]
         (
              [BillingTransactionDeliveryPointGUID]
             ,[BillingTransactionId]
@@ -611,10 +561,10 @@ BEGIN
         RETURN
     END
 
-    -- Create BTDP data (LADS)
+    -- Create BTDP data (LADS) - Remote
     IF(@HostSystemId = 2)
     BEGIN
-        INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
+        INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote]
         (
              [BillingTransactionDeliveryPointGUID]
             ,[BillingTransactionId]
@@ -656,6 +606,106 @@ BEGIN
             ldsd.IsForeignMailed
         RETURN
     END
+
+    -- Insert billing transaction (LASS)
+    INSERT INTO [LASS].[dbo].[tblBillingTransactions]
+    (
+         [BillingTransactionId]
+        ,[BillingTransactionGuid]
+        ,[BillingTransactionTypeId]
+        ,[BillingTransactionStatusId]
+        ,[CustomerID]
+        ,[LocationID]
+        ,[CustomerLobID]
+        ,[UploadID]
+        ,[JobID]
+        ,[MaterialID]
+        ,[BillingGroup]
+        ,[TransactionDate]
+        ,[Quantity]
+        ,[PageGroup]
+        ,[UserAdded]
+        ,[DateAdded]
+        ,[UserEdited]
+        ,[DateEdited]
+        ,[IsActive]
+        ,[BillingGroupId]
+        ,[DataJobID]
+    )
+    SELECT
+        btr.BillingTransactionId,
+        btr.BillingTransactionGuid,
+        btr.BillingTransactionTypeId,
+        btr.BillingTransactionStatusId,
+        btr.CustomerID,
+        btr.LocationID,
+        btr.CustomerLobID,
+        btr.UploadID,
+        btr.JobID,
+        btr.MaterialID,
+        btr.BillingGroup,
+        btr.TransactionDate,
+        btr.Quantity,
+        btr.PageGroup,
+        btr.UserAdded,
+        btr.DateAdded,
+        btr.UserEdited,
+        btr.DateEdited,
+        btr.IsActive,
+        btr.BillingGroupId,
+        btr.DataJobID 
+    FROM [LASS].[dbo].[tblBillingTransactionsRemote] btr
+    WHERE btr.UserAdded = @BillingTransactionUserAdded
+    AND btr.BillingTransactionId = @BillingTransactionId
+
+    -- Insert billing transaction delivery points (LASS)
+    INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
+    (
+         [BillingTransactionDeliveryPointID]
+        ,[BillingTransactionDeliveryPointGUID]
+        ,[BillingTransactionId]
+        ,[BillingTransactionGuid]
+        ,[City]
+        ,[StateRegion]
+        ,[PostalCode]
+        ,[CountryCode]
+        ,[DestinationCode]
+        ,[Quantity]
+        ,[DateAdded]
+        ,[DateEdited]
+        ,[UserAdded]
+        ,[UserEdited]
+        ,[IsActive]
+    )
+    SELECT 
+         btdpr.BillingTransactionDeliveryPointID
+        ,btdpr.BillingTransactionDeliveryPointGUID
+        ,btdpr.BillingTransactionId
+        ,btdpr.BillingTransactionGuid
+        ,btdpr.City
+        ,btdpr.StateRegion
+        ,btdpr.PostalCode
+        ,btdpr.CountryCode
+        ,btdpr.DestinationCode
+        ,btdpr.Quantity
+        ,btdpr.DateAdded
+        ,btdpr.DateEdited
+        ,btdpr.UserAdded
+        ,btdpr.UserEdited
+        ,btdpr.IsActive
+    FROM [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote] btdpr
+    WHERE btdpr.UserAdded = @BillingTransactionUserAdded
+    AND btdpr.BillingTransactionId = @BillingTransactionId
+
+    -- Delete remote btdp data
+    DELETE FROM [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote]
+    WHERE UserAdded = @BillingTransactionUserAdded
+    AND BillingTransactionId = @BillingTransactionId
+
+    -- Delete remote bt data
+    DELETE FROM [LASS].[dbo].[tblBillingTransactionsRemote]
+    WHERE UserAdded = @BillingTransactionUserAdded
+    AND BillingTransactionId = @BillingTransactionId
 
     AddInvoiceWarningAndStop:
     BEGIN
