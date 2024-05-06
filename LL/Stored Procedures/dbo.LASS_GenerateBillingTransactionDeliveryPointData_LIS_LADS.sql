@@ -558,7 +558,6 @@ BEGIN
             ldsd.LisState,
             ldsd.LisZip,
             ldsd.ForeignAddress
-        RETURN
     END
 
     -- Create BTDP data (LADS) - Remote
@@ -604,7 +603,6 @@ BEGIN
             ldsd.State,
             ldsd.ZipCode,
             ldsd.IsForeignMailed
-        RETURN
     END
 
     -- Insert billing transaction (LASS)
@@ -658,6 +656,8 @@ BEGIN
     WHERE btr.UserAdded = @BillingTransactionUserAdded
     AND btr.BillingTransactionId = @BillingTransactionId
 
+	SET IDENTITY_INSERT [LASS].[dbo].[tblBillingTransactionDeliveryPoints] ON
+
     -- Insert billing transaction delivery points (LASS)
     INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
     (
@@ -672,9 +672,9 @@ BEGIN
         ,[DestinationCode]
         ,[Quantity]
         ,[DateAdded]
-        ,[DateEdited]
+        --,[DateEdited]
         ,[UserAdded]
-        ,[UserEdited]
+        --,[UserEdited]
         ,[IsActive]
     )
     SELECT 
@@ -689,13 +689,15 @@ BEGIN
         ,btdpr.DestinationCode
         ,btdpr.Quantity
         ,btdpr.DateAdded
-        ,btdpr.DateEdited
+        --,btdpr.DateEdited
         ,btdpr.UserAdded
-        ,btdpr.UserEdited
+        --,btdpr.UserEdited
         ,btdpr.IsActive
     FROM [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote] btdpr
     WHERE btdpr.UserAdded = @BillingTransactionUserAdded
     AND btdpr.BillingTransactionId = @BillingTransactionId
+
+	SET IDENTITY_INSERT [LASS].[dbo].[tblBillingTransactionDeliveryPoints] OFF
 
     -- Delete remote btdp data
     DELETE FROM [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote]
@@ -706,6 +708,16 @@ BEGIN
     DELETE FROM [LASS].[dbo].[tblBillingTransactionsRemote]
     WHERE UserAdded = @BillingTransactionUserAdded
     AND BillingTransactionId = @BillingTransactionId
+
+    -- Update billing activity batch category details -- add generated billing transaction guid
+    UPDATE lbabcd
+    SET lbabcd.BillingTransactionGuid = @BillingTransactionGuid
+	FROM [LASS].[dbo].[LASS_BillingActivityBatchCategoryDetails] lbabcd
+    INNER JOIN #QualifiedBillingActivityBatchCategoryDetails qbabcd 
+		ON qbabcd.BillingActivityBatchCategoryDetailKey = lbabcd.BillingActivityBatchCategoryDetailKey
+
+    -- Stop - we are done
+	RETURN
 
     AddInvoiceWarningAndStop:
     BEGIN
