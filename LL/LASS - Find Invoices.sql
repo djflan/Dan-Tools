@@ -2,10 +2,10 @@ USE lass
 go
 
 DECLARE @ClientConfigKey INT = 13 --13
-DECLARE @InvoiceGenerationSessionKey INT = 134940 --127867
+DECLARE @InvoiceGenerationSessionKey INT = 136083 --127867
 DECLARE @FindClients BIT = 0
 DECLARE @LisActiveClients BIT = 0
-DECLARE @FindInvoices BIT = 1
+DECLARE @FindInvoices BIT = 0
 
 IF (@FindInvoices = 0) AND (@FindClients = 0) AND (@InvoiceGenerationSessionKey IS NOT NULL)
 BEGIN
@@ -14,7 +14,8 @@ BEGIN
            lli.LineItemName,
            lli.LineItemDescription,
            lili.Quantity,
-           CASE WHEN lli.UseCustomerTaxAddress = 0 THEN 1 ELSE 0 END as SalesTaxable
+           CASE WHEN lli.UseCustomerTaxAddress = 0 THEN 1 ELSE 0 END as UseCustomerTaxAddress,
+           li.IsSalesTaxExportable
     FROM LASS_InvoiceGenerationSessions ligs (NOLOCK)
         -- Join invoices generation session to invoices
         INNER JOIN LASS_Invoices i (NOLOCK)
