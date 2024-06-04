@@ -34,6 +34,11 @@ AS
 BEGIN
     SET NOCOUNT ON
 
+    -- Debug
+    DECLARE @TraceStartEventId INT = 85
+    DECLARE @TraceEndEventId INT = 87
+    DECLARE @TraceUserInfo NVARCHAR(128)
+
     -- Misc Declarations
     DECLARE @FoundLineItemCalculatorModule BIT = 0
     DECLARE @IsErrorState BIT = 0
@@ -74,6 +79,10 @@ BEGIN
     -- Locations
     DECLARE @NashvilleLocationId                                        INT = 4 -- Nashville
 
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
     -- Remove Temporary Tables, also removes indexes
     IF OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails') IS NOT NULL
     BEGIN
@@ -87,12 +96,24 @@ BEGIN
         [BillingActivityBatchCategoryQuantity] [bigint] NOT NULL
     )
 
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Fetch customer id from invoice generation session key'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
     -- Determine customer id from invoice generation session key
     SET @CustomerId = (
         SELECT TOP 1 mc.CustomerID FROM dbo.LASS_Invoices i
             INNER JOIN dbo.LASS_ClientConfigurations cc ON i.ClientConfigurationKey = cc.ClientConfigurationKey
             INNER JOIN dbo.tblCustomers mc ON cc.MaestroAccountCode = mc.Account
         WHERE i.InvoiceGenerationSessionKey = @InvoiceGenerationSessionKey)
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: Fetch customer id from invoice generation session key'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Match line item calculator module to billing transaction guid'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
 
     -- Match line item calculator module to billing transaction guid
     IF (@LineItemCalculatorModule = @PostageLineItemCalculatorModule)
@@ -150,6 +171,10 @@ BEGIN
         SET @BillingTransactionTypeGuid = @BillingTransactionTypeGuidAdditionalPagesSx -- we don't classify plexing at this point
     END
 
+    -- Trace End
+    SET @TraceUserInfo = N'End: Match line item calculator module to billing transaction guid'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
     -- Add warning if we cannot identify the customer id
     IF (@CustomerId = -1)
     BEGIN
@@ -190,8 +215,16 @@ BEGIN
         GOTO AddInvoiceWarningAndStop
     END
 
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Host System Specific Logic'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
     IF (@HostSystemId = 1) -- Begin Host System Specific Logic (LIS)
     BEGIN
+        -- Trace Start
+        SET @TraceUserInfo = N'Start: LIS Host Logic'
+        EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
         IF  (@LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR
             (@LineItemCalculatorModule = @AdditionalPostageLineItemCalculatorModule) OR
             (@LineItemCalculatorModule = @AdditionalPagesLineItemCalculatorModule) OR
@@ -320,11 +353,19 @@ BEGIN
 
             SET @FoundLineItemCalculatorModule = 1
         END
+
+        -- Trace End
+        SET @TraceUserInfo = N'End: LIS Host Logic'
+        EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
     END -- END Host System Specific Logic (LIS)
 
     -- Host System Specific Logic (LADS)
     IF (@HostSystemId = 2)
     BEGIN
+        -- Trace Start
+        SET @TraceUserInfo = N'Start: LADS Host Logic'
+        EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
 
         IF  (@LineItemCalculatorModule = @LetterShopLineItemCalculatorModule) OR
             (@LineItemCalculatorModule = @PostageLineItemCalculatorModule) OR
@@ -426,7 +467,16 @@ BEGIN
 
             SET @FoundLineItemCalculatorModule = 1
         END
+
+        -- Trace End
+        SET @TraceUserInfo = N'End: LADS Host Logic'
+        EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
     END -- End LADS Host System Specific Logic
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: Host System Specific Logic'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
 
     -- Die if no line item calculator module match found
     IF (@FoundLineItemCalculatorModule = 0)
@@ -437,10 +487,18 @@ BEGIN
         GOTO AddInvoiceWarningAndStop
     END
 
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Validate calculated babcd quantity against invoiced quantity'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
     -- Determine if line item invoiced number is equal to the calculated number
     DECLARE @InvoicedQuantity BIGINT = (SELECT TOP 1 lili.Quantity FROM LASS_InvoiceLineItems lili where lili.InvoiceLineItemKey = @InvoiceLineItemKey)
     DECLARE @CalculatedQuantity BIGINT = (SELECT SUM(qbabcd.BillingActivityBatchCategoryQuantity) FROM #QualifiedBillingActivityBatchCategoryDetails qbabcd)
     DECLARE @IsQuantityMatch BIT = (SELECT CASE WHEN @CalculatedQuantity = @InvoicedQuantity THEN 1 ELSE 0 END)
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: Validate calculated babcd quantity against invoiced quantity'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
 
     -- Die if the calculated quantity doesn't match the invoiced quantity
     IF (@IsQuantityMatch = 0)
@@ -451,10 +509,16 @@ BEGIN
         GOTO AddInvoiceWarningAndStop
     END
 
-    -- Create index for table
+    -- Create dsd index for table
     IF NOT EXISTS(SELECT name FROM tempdb.sys.indexes WHERE name='IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId' AND object_id = OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails'))
     BEGIN
         CREATE NONCLUSTERED INDEX IX_QualifiedBillingActivityBatchCategoryDetails_DataStreamDetailId ON #QualifiedBillingActivityBatchCategoryDetails(DataStreamDetailId)
+    END
+
+    -- Create babcdk index for table
+    IF NOT EXISTS(SELECT name FROM tempdb.sys.indexes WHERE name='IX_QualifiedBillingActivityBatchCategoryDetails_BillingActivityBatchCategoryDetailKey' AND object_id = OBJECT_ID('tempdb..#QualifiedBillingActivityBatchCategoryDetails'))
+    BEGIN
+        CREATE NONCLUSTERED INDEX IX_QualifiedBillingActivityBatchCategoryDetails_BillingActivityBatchCategoryDetailKey ON #QualifiedBillingActivityBatchCategoryDetails(BillingActivityBatchCategoryDetailKey)
     END
 
     -- Create billing transaction guid
@@ -464,9 +528,13 @@ BEGIN
     DECLARE @UniqueBillingTransactionUserGuid UNIQUEIDENTIFIER = NEWID()
     DECLARE @BillingTransactionUserAdded VARCHAR(MAX) = (SELECT CONCAT('lass-ll-btdp-gen','|',CAST(@InvoiceGenerationSessionKey AS VARCHAR),'|',CAST(@HostSystemId AS VARCHAR),'|',CAST(@UniqueBillingTransactionUserGuid AS VARCHAR(MAX))))
 
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Create remote billing transaction'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
     -- Insert billing transaction (Remote)
     INSERT INTO [LASS].[dbo].[tblBillingTransactionsRemote]
-    (   
+    (
          [BillingTransactionGuid]
         ,[BillingTransactionTypeId]
         ,[BillingTransactionStatusId]
@@ -512,12 +580,24 @@ BEGIN
         ,null
     )
 
+    -- Trace End
+    SET @TraceUserInfo = N'End: Create remote billing transaction'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
     -- Get billing transaction id from last insert
     DECLARE @BillingTransactionId INT = (SELECT TOP 1 BillingTransactionId FROM [LASS].[dbo].[tblBillingTransactionsRemote] WHERE UserAdded = @BillingTransactionUserAdded ORDER BY BillingTransactionId DESC)
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Create remote btdp data'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
 
     -- Create BTDP data (LIS) - Remote
     IF(@HostSystemId = 1)
     BEGIN
+        -- Trace Start
+        SET @TraceUserInfo = N'Start: Insert LIS remote btdp data'
+        EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
         INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote]
         (
              [BillingTransactionDeliveryPointGUID]
@@ -558,11 +638,19 @@ BEGIN
             ldsd.LisState,
             ldsd.LisZip,
             ldsd.ForeignAddress
+
+        -- Trace End
+        SET @TraceUserInfo = N'End: Insert LIS remote btdp data'
+        EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
     END
 
     -- Create BTDP data (LADS) - Remote
     IF(@HostSystemId = 2)
     BEGIN
+        -- Trace Start
+        SET @TraceUserInfo = N'Start: Insert LADS remote btdp data'
+        EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
         INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote]
         (
              [BillingTransactionDeliveryPointGUID]
@@ -603,7 +691,19 @@ BEGIN
             ldsd.State,
             ldsd.ZipCode,
             ldsd.IsForeignMailed
+
+        -- Trace End
+        SET @TraceUserInfo = N'End: Insert LADS remote btdp data'
+        EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
     END
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: Create remote btdp data'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Copy remote billing transaction'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
 
     -- Insert billing transaction (LASS)
     INSERT INTO [LASS].[dbo].[tblBillingTransactions]
@@ -651,12 +751,20 @@ BEGIN
         btr.DateEdited,
         btr.IsActive,
         btr.BillingGroupId,
-        btr.DataJobID 
+        btr.DataJobID
     FROM [LASS].[dbo].[tblBillingTransactionsRemote] btr
     WHERE btr.UserAdded = @BillingTransactionUserAdded
     AND btr.BillingTransactionId = @BillingTransactionId
 
-	SET IDENTITY_INSERT [LASS].[dbo].[tblBillingTransactionDeliveryPoints] ON
+    -- Trace End
+    SET @TraceUserInfo = N'End: Copy remote billing transaction'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Copy remote btdp data'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
+    SET IDENTITY_INSERT [LASS].[dbo].[tblBillingTransactionDeliveryPoints] ON
 
     -- Insert billing transaction delivery points (LASS)
     INSERT INTO [LASS].[dbo].[tblBillingTransactionDeliveryPoints]
@@ -677,7 +785,7 @@ BEGIN
         --,[UserEdited]
         ,[IsActive]
     )
-    SELECT 
+    SELECT
          btdpr.BillingTransactionDeliveryPointID
         ,btdpr.BillingTransactionDeliveryPointGUID
         ,btdpr.BillingTransactionId
@@ -697,27 +805,59 @@ BEGIN
     WHERE btdpr.UserAdded = @BillingTransactionUserAdded
     AND btdpr.BillingTransactionId = @BillingTransactionId
 
-	SET IDENTITY_INSERT [LASS].[dbo].[tblBillingTransactionDeliveryPoints] OFF
+    SET IDENTITY_INSERT [LASS].[dbo].[tblBillingTransactionDeliveryPoints] OFF
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: Copy remote btdp data'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Delete remote btdp data'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
 
     -- Delete remote btdp data
     DELETE FROM [LASS].[dbo].[tblBillingTransactionDeliveryPointsRemote]
     WHERE UserAdded = @BillingTransactionUserAdded
     AND BillingTransactionId = @BillingTransactionId
 
-    -- Delete remote bt data
+    -- Trace End
+    SET @TraceUserInfo = N'End: Delete remote btdp data'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Delete remote billing transaction'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
+    -- Delete remote billing transaction
     DELETE FROM [LASS].[dbo].[tblBillingTransactionsRemote]
     WHERE UserAdded = @BillingTransactionUserAdded
     AND BillingTransactionId = @BillingTransactionId
 
+    -- Trace End
+    SET @TraceUserInfo = N'End: Delete remote billing transaction'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Update billing activity batch category details with generated billing transaction guid'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
     -- Update billing activity batch category details -- add generated billing transaction guid
     UPDATE lbabcd
     SET lbabcd.BillingTransactionGuid = @BillingTransactionGuid
-	FROM [LASS].[dbo].[LASS_BillingActivityBatchCategoryDetails] lbabcd
-    INNER JOIN #QualifiedBillingActivityBatchCategoryDetails qbabcd 
-		ON qbabcd.BillingActivityBatchCategoryDetailKey = lbabcd.BillingActivityBatchCategoryDetailKey
+    FROM [LASS].[dbo].[LASS_BillingActivityBatchCategoryDetails] lbabcd
+    INNER JOIN #QualifiedBillingActivityBatchCategoryDetails qbabcd
+        ON qbabcd.BillingActivityBatchCategoryDetailKey = lbabcd.BillingActivityBatchCategoryDetailKey
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: Update billing activity batch category details with generated billing transaction guid'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
 
     -- Stop - we are done
-	RETURN
+    RETURN
 
     AddInvoiceWarningAndStop:
     BEGIN
@@ -753,6 +893,11 @@ BEGIN
                 ,null
                 ,null
                 ,1)
+
+            -- Trace End
+            SET @TraceUserInfo = N'End: [FAIL] LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS'
+            EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
             RETURN
         END
     END

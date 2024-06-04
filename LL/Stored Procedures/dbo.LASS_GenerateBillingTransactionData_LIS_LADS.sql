@@ -31,10 +31,15 @@ AS
 BEGIN
     SET NOCOUNT ON
 
+    -- Debug
+    DECLARE @TraceStartEventId INT = 85
+    DECLARE @TraceEndEventId INT = 87
+    DECLARE @TraceUserInfo NVARCHAR(128)
+
     -- Get invoice generation session key
     DECLARE @InvoiceGenerationSessionKey BIGINT = (
-        SELECT TOP 1 ligs.InvoiceGenerationSessionKey
-        FROM dbo.LASS_InvoiceGenerationSessions ligs
+        SELECT TOP 1 ligs.InvoiceGenerationSessionKey 
+        FROM dbo.LASS_InvoiceGenerationSessions ligs 
         WHERE ligs.InvoiceGenerationSessionId = @InvoiceGenerationSessionId)
 
     -- Remove Temporary Tables
@@ -45,7 +50,7 @@ BEGIN
 
     -- Create Temporary Tables
     -- Table: Non-Service Invoice Line Items
-    CREATE TABLE #NonServiceInvoiceLineItems
+    CREATE TABLE #NonServiceInvoiceLineItems 
     (
         [InvoiceLineItemKey] [bigint] NULL,
         [InvoiceLineItemGroupKey] [nvarchar](128) NULL,
@@ -53,6 +58,14 @@ BEGIN
         [TaxCode] [nvarchar](15) NULL,
         [TaxCategory] [nvarchar](15) NULL
     )
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: LASS_GenerateBillingTransactionData_LIS_LADS'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
+    -- Trace Start
+    SET @TraceUserInfo = N'Start: Insert non-service invoice line items into temp table #NonServiceInvoiceLineItems'
+    EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
 
     -- Insert Non-Service Invoice Line Items
     INSERT INTO #NonServiceInvoiceLineItems
@@ -63,7 +76,7 @@ BEGIN
         TaxCode,
         TaxCategory
     )
-    SELECT
+    SELECT 
            lili.InvoiceLineItemKey,
            lili.InvoiceLineItemGroupKey,
            lili.LineItemKey,
@@ -88,7 +101,7 @@ BEGIN
             ON lstc.SalesTaxCodeKey = lli.SalesTaxCodeKey
     WHERE ligs.InvoiceGenerationSessionKey = @InvoiceGenerationSessionKey                   -- Filter by session
     AND lli.UseCustomerTaxAddress = 0                                                       -- Exclude service lines (Generated later)
-    AND NOT (EXISTS(                                                                        -- Exclude lines with btdp data
+    AND NOT (EXISTS(                                                                        -- Exclude lines with btdp data                                
             SELECT * FROM LASS_BillingActivityBatchCategoryDetails lbabcd2
                 INNER JOIN tblBillingTransactionDeliveryPoints btdp
                     ON btdp.BillingTransactionGuid = lbabcd2.BillingTransactionGuid AND btdp.IsActive = 1
@@ -99,13 +112,21 @@ BEGIN
              lstc.TaxCode,
              lli.SalesTaxItemCategory
 
+    -- Trace End
+    SET @TraceUserInfo = N'End: Insert non-service invoice line items into temp table #NonServiceInvoiceLineItems'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+
     -- For each non-service invoice line item, generate billing transaction data based on calulator module
     DECLARE @TotalInvoiceLineItemRows INT = (SELECT COUNT(*) FROM #NonServiceInvoiceLineItems)
-    DECLARE @CurrentInvoiceLineItemRow INT = 1
-
+    DECLARE @CurrentInvoiceLineItemRow INT = 1                
+    
     -- Loop through each InvoiceLineItemKey
     WHILE @CurrentInvoiceLineItemRow <= @TotalInvoiceLineItemRows
     BEGIN
+        -- Trace Start
+        SET @TraceUserInfo = N'Start: Gather invoice line item data'
+        EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
         -- Get the InvoiceLineItemKey for the current row
         DECLARE @InvoiceLineItemKey BIGINT = (
             SELECT InvoiceLineItemKey
@@ -120,8 +141,8 @@ BEGIN
         FROM (
             SELECT LineItemKey, ROW_NUMBER() OVER (ORDER BY (InvoiceLineItemKey)) AS RowNum
             FROM #NonServiceInvoiceLineItems) AS T
-        WHERE RowNum = @CurrentInvoiceLineItemRow)
-
+        WHERE RowNum = @CurrentInvoiceLineItemRow)     
+    
         -- Get the LineItemCalculatorModule for the current InvoiceLineItemKey
         DECLARE @LineItemCalculatorModule NVARCHAR(128) = (
             SELECT li.LineItemCalculatorModule
@@ -129,15 +150,15 @@ BEGIN
             INNER JOIN LASS_LineItems li
                 ON lili.LineItemKey = li.LineItemKey
         WHERE lili.InvoiceLineItemKey = @InvoiceLineItemKey)
-
+        
         -- Oddly enough, we don't actually store any information about which host system the billing activity batch
-        -- data came from. Our best chance of identifying this is to infer it from the data stream details of the
-        -- billing activity batch category (see below). Alternatively, you could maybe assume this given the
-        -- 'UserAdded' column for the batch as it appears to be unique for LIS/LADS. But, in any case, here we are :)
+        -- data came from. Our best chance of identifying this is to infer it from the data stream details of the 
+        -- billing activity batch category (see below). Alternatively, you could maybe assume this given the 
+        -- 'UserAdded' column for the batch it appears to be unique for LIS/LADS. But, in any case, here we are :)
 
         -- Determine host system
         DECLARE @HostSystemDataStreamDetailId UNIQUEIDENTIFIER = (
-        SELECT TOP 1
+        SELECT TOP 1 
             lbabcd.DataStreamDetailId -- all billing activity batch category details are from a single source system
         FROM LASS_InvoiceLineItemBillingActivities liliba
             INNER JOIN LASS_BillingActivityBatchCategories lbabc
@@ -145,30 +166,46 @@ BEGIN
             INNER JOIN LASS_BillingActivityBatchCategoryDetails lbabcd
                 ON lbabc.BillingActivityBatchCategoryKey = lbabcd.BillingActivityBatchCategoryKey
         WHERE liliba.InvoiceLineItemKey = @InvoiceLineItemKey)
-
+    
         DECLARE @HostSystemId INT = 0;  -- Unknown / NotSet
-
+    
         IF @HostSystemId = 0 AND EXISTS ( SELECT * FROM LetterShop.dbo.LIS_DataStreamDetails WHERE DataStreamDetailId = @HostSystemDataStreamDetailId)
         BEGIN
             SET @HostSystemId = 1       -- LIS
         END
-
+    
         IF @HostSystemId = 0 AND EXISTS ( SELECT * FROM LADS.dbo.LADS_DataStreamDetails WHERE DataStreamDetailId = @HostSystemDataStreamDetailId)
         BEGIN
             SET @HostSystemId = 2       -- LADS
         END
-
+        
+        -- Trace End
+        SET @TraceUserInfo = N'End: Gather invoice line item data'
+        EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
+    
         -- For any invoice line item where billing activity batch category details appear to be generated from a non-Maestro
         -- system, we will attempt to populate the billing transactions table and billing transaction delivery points.
         IF (@HostSystemId != 0)
         BEGIN
+            -- Trace Start
+            SET @TraceUserInfo = N'Start: Generate btdp data for invoice line item'
+            EXEC sp_trace_generateevent @TraceStartEventId, @TraceUserInfo
+
             -- Attempt to populate the billing transactions table and billing transaction delivery points for the current InvoiceLineItemKey
             EXEC LASS_GenerateBillingTransactionDeliveryPointData_LIS_LADS @InvoiceGenerationSessionKey, @InvoiceLineItemKey, @LineItemKey, @LineItemCalculatorModule, @HostSystemId
+
+            -- Trace End
+            SET @TraceUserInfo = N'End: Generate btdp data for invoice line item'
+            EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
         END
 
         -- Increment the counter
         SET @CurrentInvoiceLineItemRow = @CurrentInvoiceLineItemRow + 1
     END
+
+    -- Trace End
+    SET @TraceUserInfo = N'End: LASS_GenerateBillingTransactionData_LIS_LADS'
+    EXEC sp_trace_generateevent @TraceEndEventId, @TraceUserInfo
 END
 
 GO
