@@ -1,0 +1,112 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "style": "plain",
+          "template": "\ue370 <#ffffff>\uf508</> {{ .UserName }} @ <#ffffff>\ufcbe</> {{ .HostName }}",
+          "foreground": "#7eb8da",
+          "background": "",
+          "type": "session"
+        },
+        {
+          "properties": {
+            "style": "dallas",
+            "threshold": 0
+          },
+          "style": "diamond",
+          "template": " <#ffffff>\uf252</> {{ .FormattedMs }}s",
+          "foreground": "#be9ddf",
+          "background": "",
+          "type": "executiontime"
+        },
+        {
+          "style": "diamond",
+          "template": " <#ffffff>\uf85a</> RAM: {{ (div ((sub .PhysicalTotalMemory .PhysicalFreeMemory)|float64) 1000000000.0) }}/{{ (div .PhysicalTotalMemory 1000000000.0) }}GB",
+          "foreground": "#be9ddf",
+          "background": "",
+          "type": "sysinfo"
+        },
+        {
+          "properties": {
+            "time_format": "Monday, 3:04:05 PM"
+          },
+          "style": "diamond",
+          "template": " <#ffffff>\uf5ef</> {{ .CurrentDate | date .Format }}",
+          "foreground": "#7eb8da",
+          "background": "",
+          "type": "time"
+        },
+        {
+          "properties": {
+            "fetch_stash_count": true,
+            "fetch_status": true,
+            "fetch_upstream_icon": true
+          },
+          "style": "plain",
+          "template": " <#ffffff>{{ .UpstreamIcon }}</>{{ .HEAD }}{{ .BranchStatus }}{{ if .Working.Changed }} <#ffffff>\uf044</> {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }} <#ffffff>\uf046</> {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }} <#ffffff>\uf692</> {{ .StashCount }}{{ end }}",
+          "foreground": "#ffa5d8",
+          "background": "",
+          "type": "git"
+        },
+        {
+          "style": "plain",
+          "template": " {{ .Profile }}{{if .Region}}@{{ .Region }}{{ end }}",
+          "foreground": "#ffa5d8",
+          "background": "",
+          "type": "aws"
+        },
+        {
+          "style": "plain",
+          "template": " {{.Context}}{{if .Namespace}} :: {{.Namespace}}{{end}}",
+          "foreground": "#ffa5d8",
+          "background": "",
+          "type": "kubectl"
+        },
+        {
+          "style": "powerline",
+          "template": " [<#ffffff>\ufc8d</> Error - check your command]",
+          "foreground": "#ffa5ab",
+          "background": "",
+          "type": "exit"
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "properties": {
+            "style": "full"
+          },
+          "style": "plain",
+          "template": "\ue2a2 \ue5ff <#98bfad>{{ .Path }}</>",
+          "foreground": "#7eb8da",
+          "background": "",
+          "type": "path"
+        }
+      ],
+      "newline": true
+    },
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "style": "plain",
+          "template": "  \ufb9e",
+          "foreground": "#7E96DA",
+          "background": "",
+          "type": "text"
+        }
+      ],
+      "newline": true
+    }
+  ],
+  "version": 3,
+  "final_space": true
+}
