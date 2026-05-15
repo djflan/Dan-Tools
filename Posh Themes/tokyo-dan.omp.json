@@ -2,101 +2,111 @@
   "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
   "blocks": [
     {
+      "type": "prompt",
       "alignment": "left",
       "segments": [
         {
-          "foreground": "#7eb8da",
           "style": "plain",
-          "template": "\u2320 <#ffffff>\uf508</> {{ .UserName }} @ <#ffffff>\ufcbe</> {{ .HostName }}",
+          "template": " <#ffffff>󰀉</> {{ .UserName }} @ <#ffffff>󰟀</> {{ .HostName }}",
+          "foreground": "#7eb8da",
+          "background": "",
           "type": "session"
         },
         {
-          "foreground": "#be9ddf",
           "properties": {
             "style": "dallas",
             "threshold": 0
           },
           "style": "diamond",
-          "template": " <#ffffff>\uf252</> {{ .FormattedMs }}s",
+          "template": " <#ffffff></> {{ .FormattedMs }}s",
+          "foreground": "#be9ddf",
+          "background": "",
           "type": "executiontime"
         },
         {
-          "foreground": "#be9ddf",
           "style": "diamond",
-          "template": " <#ffffff>\uf85a</> RAM: {{ (div ((sub .PhysicalTotalMemory .PhysicalFreeMemory)|float64) 1000000000.0) }}/{{ (div .PhysicalTotalMemory 1000000000.0) }}GB",
+          "template": " <#ffffff>󰍛</> RAM: {{ (div ((sub .PhysicalTotalMemory .PhysicalFreeMemory)|float64) 1000000000.0) }}/{{ (div .PhysicalTotalMemory 1000000000.0) }}GB",
+          "foreground": "#be9ddf",
+          "background": "",
           "type": "sysinfo"
         },
         {
-          "foreground": "#7eb8da",
           "properties": {
             "time_format": "Monday, 3:04:05 PM"
           },
           "style": "diamond",
-          "template": " <#ffffff>\uf5ef</> {{ .CurrentDate | date .Format }}",
+          "template": " <#ffffff>󰃰</> {{ .CurrentDate | date .Format }}",
+          "foreground": "#7eb8da",
+          "background": "",
           "type": "time"
         },
         {
-          "foreground": "#ffa5d8",
           "properties": {
             "fetch_stash_count": true,
             "fetch_status": true,
             "fetch_upstream_icon": true
           },
           "style": "plain",
-          "template": " <#ffffff>{{ .UpstreamIcon }}</>{{ .HEAD }}{{ .BranchStatus }}{{ if .Working.Changed }} <#ffffff>\uf044</> {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }} <#ffffff>\uf046</> {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }} <#ffffff>\uf692</> {{ .StashCount }}{{ end }}",
+          "template": " <#ffffff>{{ .UpstreamIcon }}</>{{ .HEAD }}{{ .BranchStatus }}{{ if .Working.Changed }} <#ffffff></> {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }} <#ffffff></> {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }} <#ffffff>󰆓</> {{ .StashCount }}{{ end }}",
+          "foreground": "#ffa5d8",
+          "background": "",
           "type": "git"
         },
         {
-          "foreground": "#ffa5d8",
           "style": "plain",
           "template": " {{ .Profile }}{{if .Region}}@{{ .Region }}{{ end }}",
+          "foreground": "#ffa5d8",
+          "background": "",
           "type": "aws"
         },
         {
-          "foreground": "#ffa5d8",
           "style": "plain",
           "template": " {{.Context}}{{if .Namespace}} :: {{.Namespace}}{{end}}",
+          "foreground": "#ffa5d8",
+          "background": "",
           "type": "kubectl"
         },
         {
-          "foreground": "#ffa5ab",
           "style": "powerline",
-          "template": " [<#ffffff>\ufc8d</> Error - check your command]",
+          "template": " [<#ffffff>󰞏</> Error - check your command]",
+          "foreground": "#ffa5ab",
+          "background": "",
           "type": "exit"
         }
-      ],
-      "type": "prompt"
+      ]
     },
     {
+      "type": "prompt",
       "alignment": "left",
-      "newline": true,
       "segments": [
         {
-          "foreground": "#7eb8da",
           "properties": {
             "style": "full"
           },
           "style": "plain",
-          "template": "\u23ad \ue5ff <#98bfad>{{ .Path }}</>",
+          "template": "  <#98bfad>{{ .Path }}</>",
+          "foreground": "#7eb8da",
+          "background": "",
           "type": "path"
         }
       ],
-      "type": "prompt"
+      "newline": true
     },
     {
+      "type": "prompt",
       "alignment": "left",
-      "newline": true,
       "segments": [
         {
-          "foreground": "#7E96DA",
           "style": "plain",
-          "template": " ",
+          "template": "  󰯂",
+          "foreground": "#7E96DA",
+          "background": "",
           "type": "text"
         }
       ],
-      "type": "prompt"
+      "newline": true
     }
   ],
-  "final_space": true,
-  "version": 2
+  "version": 3,
+  "final_space": true
 }
