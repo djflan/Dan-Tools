@@ -1,0 +1,143 @@
+add_newline = false
+command_timeout = 1000
+
+format = """
+$username[@](#7eb8da)$hostname$cmd_duration${custom.memory}$time$git_branch$git_status$aws$kubernetes$status
+$directory
+$character"""
+
+# --------------------------------------------------
+# USERNAME
+# --------------------------------------------------
+
+[username]
+show_always = true
+style_user = "#7eb8da"
+style_root = "#7eb8da"
+format = "[](#7eb8da) [󰀉](white) [$user]($style) "
+
+# --------------------------------------------------
+# HOSTNAME
+# --------------------------------------------------
+
+[hostname]
+ssh_only = false
+style = "#7eb8da"
+format = " [󰟀](white) [$hostname]($style) "
+
+# --------------------------------------------------
+# EXECUTION TIME
+# --------------------------------------------------
+
+[cmd_duration]
+min_time = 0
+show_milliseconds = false
+format = "[](white) [$duration](#be9ddf) "
+
+# --------------------------------------------------
+# MEMORY
+# --------------------------------------------------
+
+[custom.memory]
+command = '''
+vm_stat | awk '
+/Pages active/ {active=$3}
+/Pages wired down/ {wired=$4}
+/Pages occupied by compressor/ {compressed=$5}
+END {
+  gsub("\\.","",active);
+  gsub("\\.","",wired);
+  gsub("\\.","",compressed);
+
+  used=(active+wired+compressed)*4096/1000000000;
+
+  cmd="sysctl -n hw.memsize";
+  cmd | getline total;
+  close(cmd);
+
+  printf "RAM: %.1f/%.1fGB", used, total/1000000000
+}'
+'''
+when = true
+format = "[󰍛](white) [$output](#be9ddf) "
+
+# --------------------------------------------------
+# TIME
+# --------------------------------------------------
+
+[time]
+disabled = false
+time_format = "%A, %-I:%M:%S %p"
+format = "[󰃰](white) [$time](#7eb8da) "
+
+# --------------------------------------------------
+# GIT BRANCH
+# --------------------------------------------------
+
+[git_branch]
+symbol = ""
+format = " [](white) [$branch](#ffa5d8)"
+
+# --------------------------------------------------
+# GIT STATUS
+# --------------------------------------------------
+
+[git_status]
+style = "#ffa5d8"
+format = "[$all_status$ahead_behind]($style)"
+
+conflicted = " [= $count]"
+ahead = " [⇡$count]"
+behind = " [⇣$count]"
+diverged = " [⇕⇡$ahead_count⇣$behind_count]"
+up_to_date = ""
+
+untracked = " [󰝒](white) $count"
+stashed = " [󰆓](white) $count"
+modified = " [](white) $count"
+staged = " [](white) $count"
+renamed = " [󰑕](white) $count"
+deleted = " [󰧧](white) $count"
+
+# --------------------------------------------------
+# AWS
+# --------------------------------------------------
+
+[aws]
+format = " [$profile( @$region)](#ffa5d8)"
+
+# --------------------------------------------------
+# KUBERNETES
+# --------------------------------------------------
+
+[kubernetes]
+disabled = false
+format = " [$context( :: $namespace)](#ffa5d8)"
+
+# --------------------------------------------------
+# EXIT STATUS
+# --------------------------------------------------
+
+[status]
+disabled = false
+symbol = ""
+success_symbol = ""
+format = " [󰞏](white) [Error - check your command](#ffa5ab)"
+
+# --------------------------------------------------
+# DIRECTORY
+# --------------------------------------------------
+
+[directory]
+truncation_length = 0
+truncate_to_repo = false
+format = "[](#7eb8da) [](#7E96DA) [$path](#98bfad)"
+
+# --------------------------------------------------
+# PROMPT CHARACTER
+# --------------------------------------------------
+
+[character]
+success_symbol = "[  󰯂](#7E96DA)"
+error_symbol = "[  󰯂](#7E96DA)"
+vimcmd_symbol = "[  󰯂](#be9ddf)"
