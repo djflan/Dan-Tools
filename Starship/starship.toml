@@ -38,28 +38,28 @@ format = "[](white) [$duration](#be9ddf) "
 # MEMORY
 # --------------------------------------------------
 
-[custom.memory]
-command = '''
-vm_stat | awk '
-/Pages active/ {active=$3}
-/Pages wired down/ {wired=$4}
-/Pages occupied by compressor/ {compressed=$5}
-END {
-  gsub("\\.","",active);
-  gsub("\\.","",wired);
-  gsub("\\.","",compressed);
+# [custom.memory]
+# command = '''
+# vm_stat | awk '
+# /Pages active/ {active=$3}
+# /Pages wired down/ {wired=$4}
+# /Pages occupied by compressor/ {compressed=$5}
+# END {
+#   gsub("\\.","",active);
+#   gsub("\\.","",wired);
+#   gsub("\\.","",compressed);
 
-  used=(active+wired+compressed)*4096/1000000000;
+#   used=(active+wired+compressed)*4096/1000000000;
 
-  cmd="sysctl -n hw.memsize";
-  cmd | getline total;
-  close(cmd);
+#   cmd="sysctl -n hw.memsize";
+#   cmd | getline total;
+#   close(cmd);
 
-  printf "RAM: %.1f/%.1fGB", used, total/1000000000
-}'
-'''
-when = true
-format = "[󰍛](white) [$output](#be9ddf) "
+#   printf "RAM: %.1f/%.1fGB", used, total/1000000000
+# }'
+# '''
+# when = true
+# format = "[󰍛](white) [$output](#be9ddf) "
 
 # --------------------------------------------------
 # TIME

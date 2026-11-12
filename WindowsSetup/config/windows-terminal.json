@@ -1,0 +1,15 @@
+{
+    "copyOnSelect": true,
+    "confirmCloseAllTabs": false,
+    "profiles": {
+        "defaults": {
+            "font": {
+                "face": "JetBrainsMono Nerd Font Mono",
+                "size": 14
+            },
+            "opacity": 85,
+            "useAcrylic": true,
+            "padding": "12"
+        }
+    }
+}

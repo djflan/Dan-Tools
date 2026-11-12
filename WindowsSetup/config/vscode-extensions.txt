@@ -1,0 +1,57 @@
+# Fallback list for the VSCode phase. Settings Sync normally brings these back on its own.
+# One extension ID per line; lines starting with # are ignored.
+
+# AI
+anthropic.claude-code
+openai.chatgpt
+ms-vscode.vscode-chat-customizations-evaluations
+
+# GitHub
+github.vscode-github-actions
+github.vscode-pull-request-github
+
+# .NET / Aspire
+ms-dotnettools.csdevkit
+ms-dotnettools.csharp
+ms-dotnettools.vscode-dotnet-runtime
+ms-dotnettools.blazorwasm-companion
+microsoft-aspire.aspire-vscode
+fernandoescolar.vscode-solution-explorer
+leo-labs.dotnet
+
+# Data
+ms-mssql.mssql
+ms-mssql.data-workspace-vscode
+ms-mssql.sql-bindings-vscode
+ms-mssql.sql-database-projects-vscode
+ms-ossdata.vscode-pgsql
+inferrinizzard.prettier-sql-vscode
+mechatroner.rainbow-csv
+dericlee.edi-edifact-support
+
+# Infra / containers
+hashicorp.terraform
+ms-azuretools.vscode-containers
+ms-vscode-remote.remote-containers
+ms-vscode-remote.remote-wsl
+redhat.vscode-yaml
+tamasfe.even-better-toml
+
+# Languages / formatting
+ms-vscode.powershell
+ms-python.python
+ms-python.vscode-pylance
+ms-python.debugpy
+ms-python.vscode-python-envs
+esbenp.prettier-vscode
+gamemodeone.json-compact-prettier
+
+# Utilities
+iliazeus.vscode-ansi
+tomoki1207.pdf
+
+# Look
+github.github-vscode-theme
+kiirpi.cloud9-jetstream-theme
+miguelsolorio.fluent-icons
+pkief.material-icon-theme
