@@ -4,7 +4,8 @@ Sets up a Windows work laptop to match the macOS setup: CLI tools, pwsh 7 + star
 git, .NET/Node/Python tooling, VS Code, work repos, Copilot/Claude config and RDP connections.
 
 It is idempotent: every phase checks before it changes anything, so re-run it whenever you like.
-Admin rights are optional. Without them it installs per-user and lists what still needs admin.
+Installs go through **winget** wherever a package exists. Without admin, machine-wide packages and
+system settings each raise a UAC / Admin By Request prompt. Anything you decline is listed at the end.
 
 ## Two parts
 
@@ -47,17 +48,19 @@ powershell -ExecutionPolicy Bypass -File $setup -WorkBundle $bundle -WhatIf   # 
 powershell -ExecutionPolicy Bypass -File $setup -WorkBundle $bundle           # for real
 ```
 
-- Run it **not elevated** first, so per-user settings land in your profile.
-- If PowerShell 7 is missing it installs it first, then relaunches itself in pwsh.
+- Run it **not elevated**, so per-user settings land in your profile. Approve the UAC / Admin By Request prompts as they come up: pwsh, .NET 8, Node, Azure CLI, AWS CLI, starship, sqlcmd, 7-Zip, Docker, long paths and WSL.
+- If PowerShell 7 is missing, it installs it first with winget, then relaunches itself in pwsh.
 - The first clones open a browser sign-in (GitHub, then Azure DevOps) through Git Credential Manager.
-- It ends with a summary: **Needs admin** (send to IT or use Admin By Request) and **Manual steps**.
+- It ends with a summary: **Needs admin** (prompts declined or failed) and **Manual steps**.
 - The log and a JSON report are saved under `%LOCALAPPDATA%\WindowsSetup`.
 
-Once you have admin (elevated pwsh running **as you**, not a separate admin account):
+To retry what needs admin, re-run and approve the prompts, or run from an elevated pwsh running **as you** (not a separate admin account):
 
 ```powershell
 & $setup -Only Packages,System
 ```
+
+If elevation isn't possible at all, `-UseFallbacks` installs those tools per-user instead of through winget.
 
 ### Options
 
@@ -67,6 +70,7 @@ Once you have admin (elevated pwsh running **as you**, not a separate admin acco
 | `-WorkBundle` | Bundle zip or folder. Without it, the Git identity, Repos, AI and RDP phases are skipped. |
 | `-RepoRoot` | Default `C:\Git`. Repos go to `<RepoRoot>\<Group>\<Repo>`. |
 | `-ExcludePackage` | Package names from `packages.psd1`, e.g. `'Docker Desktop'` |
+| `-UseFallbacks` | When winget fails or is missing, install per-user instead: GitHub zip, `dotnet-install.ps1`, fnm for Node, Azure CLI zip, AWS CLI `msiexec /a` |
 | `-WhatIf` | Dry run. It also works on macOS for testing (Windows paths go to a temp folder). |
 
 ## What each phase does
@@ -74,8 +78,8 @@ Once you have admin (elevated pwsh running **as you**, not a separate admin acco
 | Phase | Details |
 |---|---|
 | Prereqs | Checks winget and elevation, sets execution policy `RemoteSigned` (CurrentUser), creates `C:\Git` |
-| Packages | Installs everything in `packages.psd1` with winget (user scope where available). Machine-only packages use a per-user fallback when not elevated: zip from GitHub, `dotnet-install.ps1`, fnm for Node, Azure CLI zip, AWS CLI `msiexec /a`. Anything without a fallback goes on the **Needs admin** list. |
-| Fonts | JetBrainsMono and Hack Nerd Fonts, installed per-user |
+| Packages | Installs everything in `packages.psd1` with winget (user scope where available; machine-wide ones raise a UAC prompt when not elevated). Only Auth0 CLI isn't in winget, so it comes from its GitHub release. |
+| Fonts | JetBrainsMono and Hack Nerd Fonts, installed per-user from the Nerd Fonts release. winget's JetBrainsMono package needs admin and is behind upstream, and Hack isn't in winget. |
 | Shell | Modules PSFzf, ConsoleGuiTools and SqlServer. Installs the pwsh profile (`config/Microsoft.PowerShell_profile.ps1`) and `~/.config/starship.toml`. Existing files are backed up. |
 | Terminal | Windows Terminal: pwsh 7 as the default profile, JetBrainsMono Nerd Font Mono 14, 85% opacity + acrylic, padding 12, copy-on-select (the Ghostty look). Open Terminal once first so `settings.json` exists. |
 | Git | `core.editor`, `autocrlf=true`, `longpaths`, `init.defaultBranch`, GCM, identity, the work identity through `includeIf "gitdir/i:C:/Git/<Group>/"`, Azure DevOps credential settings, git-lfs |
@@ -84,7 +88,7 @@ Once you have admin (elevated pwsh running **as you**, not a separate admin acco
 | Repos | Clones each bundle repo that's missing |
 | AI | Copilot instructions and `mcp-config.json` to `~/.copilot`, Claude skills to `~/.claude/skills` |
 | RDP | `.rdp` files to `Documents\RDP\<Folder>`. Double-click opens `mstsc`; tick *Remember me* on the first connect. On Windows, Windows App is only for AVD/Windows 365. |
-| System (admin) | `LongPathsEnabled`, WSL Ubuntu (`--no-launch`). After a reboot and first Ubuntu launch, re-run to apply `config/wsl-setup.sh` (starship, zoxide, eza, fzf, redis-tools for Valkey). |
+| System (UAC) | `LongPathsEnabled`, WSL Ubuntu (`--no-launch`). After a reboot and first Ubuntu launch, re-run to apply `config/wsl-setup.sh` (starship, zoxide, eza, fzf, redis-tools for Valkey). |
 
 ## Mac to Windows differences
 

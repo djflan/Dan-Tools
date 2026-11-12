@@ -7,6 +7,7 @@ $script:Phases = @('Prereqs', 'Packages', 'Fonts', 'Shell', 'Terminal', 'Git', '
 $script:Root = $PSScriptRoot
 $script:DryRun = $false
 $script:IsAdmin = $false
+$script:UseFallbacks = $false
 $script:HasWinget = $false
 $script:Catalog = $null
 $script:Bundle = $null
@@ -41,14 +42,14 @@ function Add-Result {
 
 # Runs a state-changing action, or only reports it in dry-run mode.
 function Invoke-Change {
-    param([string]$Phase, [string]$Item, [string]$Detail, [scriptblock]$Action, [string]$DoneStatus = 'Installed')
+    param([string]$Phase, [string]$Item, [string]$Detail, [scriptblock]$Action, [string]$DoneStatus = 'Installed', [string]$FailStatus = 'Failed')
     if ($script:DryRun) { Add-Result $Phase $Item 'WouldChange' $Detail; return $true }
     try {
         & $Action
         Add-Result $Phase $Item $DoneStatus $Detail
         return $true
     } catch {
-        Add-Result $Phase $Item 'Failed' $_.Exception.Message
+        Add-Result $Phase $Item $FailStatus $_.Exception.Message
         return $false
     }
 }
@@ -184,6 +185,22 @@ function Add-MissingToolResult([string]$Phase, [string]$Item, [string]$Tool) {
     else { Add-Result $Phase $Item 'Failed' "$Tool not found on PATH (run the Packages phase first)" }
 }
 
+# Runs a command elevated: directly when already admin, otherwise via a UAC / Admin By Request prompt.
+function Invoke-Elevated([string]$FilePath, [string[]]$ArgumentList) {
+    if ($script:IsAdmin) {
+        & $FilePath @ArgumentList
+        if ($LASTEXITCODE) { throw "$FilePath exit $LASTEXITCODE" }
+        return
+    }
+    Write-Host "    approve the UAC / Admin By Request prompt for: $FilePath $($ArgumentList -join ' ')" -ForegroundColor Yellow
+    try {
+        $proc = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -Verb RunAs -Wait -PassThru -WindowStyle Hidden
+    } catch {
+        throw "elevation declined or unavailable: $($_.Exception.Message)"
+    }
+    if ($proc.ExitCode) { throw "$FilePath exit $($proc.ExitCode)" }
+}
+
 function Merge-Hashtable([System.Collections.IDictionary]$Target, [System.Collections.IDictionary]$Source) {
     foreach ($key in $Source.Keys) {
         if ($Source[$key] -is [System.Collections.IDictionary] -and $Target.Contains($key) -and $Target[$key] -is [System.Collections.IDictionary]) {
@@ -225,7 +242,7 @@ function Invoke-PrereqsPhase {
     if (-not $IsWindows) {
         Add-Result $p 'Windows' $(if ($script:DryRun) { 'Skipped' } else { 'Failed' }) 'not running on Windows (dry-run only)'
     }
-    Add-Result $p 'Elevation' 'Present' $(if ($script:IsAdmin) { 'running elevated' } else { 'not elevated: machine-wide items use per-user fallbacks or are listed for IT' })
+    Add-Result $p 'Elevation' 'Present' $(if ($script:IsAdmin) { 'running elevated' } else { 'not elevated: machine-wide installs will raise UAC / Admin By Request prompts' })
 
     if (-not $IsWindows) {
         Add-Result $p 'winget' 'Skipped' 'simulated (not Windows)'
@@ -334,25 +351,39 @@ function Invoke-PackagesPhase([string[]]$ExcludePackage) {
         if ($ExcludePackage -contains $name) { Add-Result $p $name 'Skipped' 'excluded'; continue }
         if (Test-PackagePresent $pkg) { Add-Result $p $name 'Present'; continue }
 
-        $canWinget = $pkg.Winget -and $script:HasWinget -and ($script:IsAdmin -or $pkg.Scope -ne 'machine')
-        $how = if ($canWinget) { "winget $($pkg.Winget)" + $(if ($pkg.Scope -eq 'user') { ' (user scope)' } else { '' }) }
-               elseif ($pkg.Fallback) { "$($pkg.Fallback.Type) fallback (per-user)" }
+        # winget first, always. Machine-scope packages while not elevated make the installer raise UAC
+        # (Admin By Request). Fallbacks only for packages winget doesn't carry, or with -UseFallbacks.
+        $canWinget = $pkg.Winget -and $script:HasWinget
+        $elevates = $canWinget -and $pkg.Scope -eq 'machine' -and -not $script:IsAdmin
+        $fallbackAllowed = $pkg.Fallback -and (-not $pkg.Winget -or $script:UseFallbacks)
+        $adminHint = "winget install --id $($pkg.Winget) -e"
+        $how = if ($canWinget) {
+                   "winget $($pkg.Winget)" + $(if ($pkg.Scope -eq 'user') { ' (user scope)' } elseif ($elevates) { ' (UAC / Admin By Request prompt)' } else { '' })
+               } elseif ($fallbackAllowed) { "$($pkg.Fallback.Type) (per-user; not in winget)" }
                else { $null }
 
         if (-not $how) {
-            if ($pkg.Scope -eq 'machine' -and -not $script:IsAdmin) { Add-Result $p $name 'NeedsAdmin' "winget install --id $($pkg.Winget) -e" }
-            else { Add-Result $p $name 'Failed' 'no install method (winget missing?)' }
+            if ($pkg.Winget) { Add-Result $p $name 'Manual' "winget unavailable: $adminHint once winget works (or re-run with -UseFallbacks)" }
+            else { Add-Result $p $name 'Failed' 'no install method' }
             continue
         }
         if ($script:DryRun) { Add-Result $p $name 'WouldChange' $how; continue }
 
+        if ($elevates) { Write-Host "    $name installs machine-wide: approve the UAC / Admin By Request prompt" -ForegroundColor Yellow }
         try {
             if ($canWinget) {
                 try { Install-WithWinget $pkg; Add-Result $p $name 'Installed' $how; continue }
-                catch { if (-not $pkg.Fallback) { throw }; Write-Host "    winget failed ($($_.Exception.Message)); trying fallback" -ForegroundColor DarkYellow }
+                catch {
+                    if (-not $fallbackAllowed) {
+                        $status = if ($pkg.Scope -eq 'machine' -and -not $script:IsAdmin) { 'NeedsAdmin' } else { 'Failed' }
+                        Add-Result $p $name $status "$($_.Exception.Message) | $adminHint"
+                        continue
+                    }
+                    Write-Host "    winget failed ($($_.Exception.Message)); using -UseFallbacks" -ForegroundColor DarkYellow
+                }
             }
             Install-Fallback $pkg
-            Add-Result $p $name 'Installed' "$($pkg.Fallback.Type) fallback (per-user)"
+            Add-Result $p $name 'Installed' "$($pkg.Fallback.Type) (per-user)"
         } catch {
             Add-Result $p $name 'Failed' $_.Exception.Message
         }
@@ -617,8 +648,11 @@ function Invoke-SystemPhase {
 
     $fs = 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem'
     if ((Get-ItemProperty $fs -Name LongPathsEnabled -ErrorAction Ignore).LongPathsEnabled -eq 1) { Add-Result $p 'Long paths' 'Present' }
-    elseif (-not $script:IsAdmin) { Add-Result $p 'Long paths' 'NeedsAdmin' 'HKLM LongPathsEnabled = 1' }
-    else { $null = Invoke-Change $p 'Long paths' 'HKLM LongPathsEnabled = 1' -DoneStatus 'Updated' { Set-ItemProperty $fs -Name LongPathsEnabled -Value 1 -Type DWord } }
+    else {
+        $null = Invoke-Change $p 'Long paths' "HKLM LongPathsEnabled = 1$(if (-not $script:IsAdmin) { ' (UAC / Admin By Request prompt)' })" -DoneStatus 'Updated' -FailStatus 'NeedsAdmin' {
+            Invoke-Elevated 'reg.exe' @('add', 'HKLM\SYSTEM\CurrentControlSet\Control\FileSystem', '/v', 'LongPathsEnabled', '/t', 'REG_DWORD', '/d', '1', '/f')
+        }
+    }
 
     $env:WSL_UTF8 = '1'
     $distros = @(wsl.exe --list --quiet 2>$null | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -635,14 +669,11 @@ function Invoke-SystemPhase {
                 if ($LASTEXITCODE) { throw "wsl-setup.sh failed ($LASTEXITCODE)" }
             }
         }
-    } elseif (-not $script:IsAdmin) {
-        Add-Result $p 'WSL Ubuntu' 'NeedsAdmin' 'wsl --install -d Ubuntu --no-launch (reboot after)'
     } else {
-        $null = Invoke-Change $p 'WSL Ubuntu' 'wsl --install -d Ubuntu --no-launch' {
-            wsl.exe --install -d Ubuntu --no-launch
-            if ($LASTEXITCODE) { throw "wsl --install failed ($LASTEXITCODE)" }
+        $wslInstalled = Invoke-Change $p 'WSL Ubuntu' "wsl --install -d Ubuntu --no-launch$(if (-not $script:IsAdmin) { ' (UAC / Admin By Request prompt)' })" -FailStatus 'NeedsAdmin' {
+            Invoke-Elevated 'wsl.exe' @('--install', '-d', 'Ubuntu', '--no-launch')
         }
-        Add-Result $p 'WSL first run' 'Manual' 'reboot, open "Ubuntu" from Start to create your Linux user, then re-run -Only System'
+        if ($wslInstalled) { Add-Result $p 'WSL first run' 'Manual' 'reboot, open "Ubuntu" from Start to create your Linux user, then re-run -Only System' }
     }
 
     if ((Find-Command docker) -or (Test-Path "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe")) {
@@ -667,9 +698,9 @@ function Show-Report {
 
     $admin = @($results | Where-Object Status -eq 'NeedsAdmin')
     if ($admin) {
-        Write-Host "`nNeeds admin (send to IT, or elevate with Admin By Request):" -ForegroundColor Yellow
+        Write-Host "`nNeeds admin (UAC / Admin By Request was declined or unavailable):" -ForegroundColor Yellow
         $admin | ForEach-Object { Write-Host "  - $($_.Item): $($_.Detail)" }
-        Write-Host '  Then, from an elevated pwsh running as YOU:' -ForegroundColor Yellow
+        Write-Host '  Approve the prompts on a re-run, or from an elevated pwsh running as YOU:' -ForegroundColor Yellow
         Write-Host "    & '$(Join-Path $script:Root 'bootstrap.ps1')' -Only Packages,System" -ForegroundColor Yellow
     }
 
@@ -693,6 +724,7 @@ function Invoke-WindowsSetup {
         [string]$WorkBundle,
         [string]$RepoRoot = 'C:\Git',
         [string[]]$ExcludePackage,
+        [switch]$UseFallbacks,
         [switch]$DryRun
     )
     $Only = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -704,6 +736,7 @@ function Invoke-WindowsSetup {
 
     $script:Results.Clear()
     $script:DryRun = [bool]$DryRun
+    $script:UseFallbacks = [bool]$UseFallbacks
     $script:IsAdmin = Test-Admin
     # Dry runs off Windows simulate winget so the preview shows what would be installed.
     $script:HasWinget = [bool](Find-Command winget) -or (-not $IsWindows -and $script:DryRun)

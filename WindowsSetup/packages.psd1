@@ -2,8 +2,9 @@
     # Scope:
     #   user    - winget has a per-user installer (passes --scope user, no admin needed)
     #   none    - zip/portable/msix package, installs without admin (no --scope flag)
-    #   machine - winget only has a machine-wide installer (needs admin); Fallback is used when not elevated
+    #   machine - winget only has a machine-wide installer; when not elevated it raises a UAC / Admin By Request prompt
     # Detection: Command (on PATH), DotnetSdk (major version), Paths, otherwise `winget list --id`.
+    # Fallback: used only when there is no Winget ID, or with bootstrap.ps1 -UseFallbacks after winget fails.
     # Fallback types: GitHubZip (Repo + AssetPattern[/AssetPatternArm64]), UrlZip (Url), MsiExtract (Url), DotnetInstall (Channel), Fnm.
     Packages = @(
         # Core

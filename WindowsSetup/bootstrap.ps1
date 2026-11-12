@@ -25,7 +25,9 @@ param(
     [string]$WorkBundle,
     [string]$RepoRoot = 'C:\Git',
     # Package names from packages.psd1 to leave out, e.g. 'Docker Desktop'.
-    [string[]]$ExcludePackage
+    [string[]]$ExcludePackage,
+    # Allow per-user zip/script installs when winget fails or isn't available (default: winget only).
+    [switch]$UseFallbacks
 )
 $ErrorActionPreference = 'Stop'
 
@@ -53,16 +55,16 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
             Write-Host 'DRY RUN: PowerShell 7 is required to continue; it would be installed now. Install it and re-run with -WhatIf.' -ForegroundColor Cyan
             exit 0
         }
-        $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-        $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-        if ($isAdmin -and (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Write-Host 'Installing PowerShell 7 with winget...'
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            # Not elevated: the MSI raises a UAC / Admin By Request prompt.
+            Write-Host 'Installing PowerShell 7 with winget (approve the UAC / Admin By Request prompt if shown)...'
             winget install --id Microsoft.PowerShell --exact --source winget --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
             $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
             $pwsh = Find-Pwsh
         }
         if (-not $pwsh) {
-            Write-Host 'Installing PowerShell 7 per-user from GitHub...'
+            # Last resort, so setup can continue at all: per-user zip.
+            Write-Host 'winget could not install PowerShell 7; installing it per-user from GitHub...'
             $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'x64' }
             $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases/latest' -Headers @{ 'User-Agent' = 'Dan-Tools-WindowsSetup' } -UseBasicParsing
             $asset = $release.assets | Where-Object { $_.name -match "^PowerShell-[\d.]+-win-$arch\.zip$" } | Select-Object -First 1
@@ -103,4 +105,4 @@ Import-Module (Join-Path $PSScriptRoot 'Setup.psm1') -Force
 # The module does its own dry run; a live -WhatIf would also block read-only prep (bundle unzip, logs).
 $dryRun = [bool]$WhatIfPreference
 $WhatIfPreference = $false
-Invoke-WindowsSetup -Only $Only -Skip $Skip -WorkBundle $WorkBundle -RepoRoot $RepoRoot -ExcludePackage $ExcludePackage -DryRun:$dryRun
+Invoke-WindowsSetup -Only $Only -Skip $Skip -WorkBundle $WorkBundle -RepoRoot $RepoRoot -ExcludePackage $ExcludePackage -UseFallbacks:$UseFallbacks -DryRun:$dryRun
