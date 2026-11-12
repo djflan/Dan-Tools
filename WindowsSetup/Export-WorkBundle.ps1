@@ -148,10 +148,12 @@ left join ZBOOKMARKFOLDERENTITY f on f.Z_PK = b.ZBOOKMARKFOLDER
     $json = sqlite3 -json (Join-Path $tmp 'com.microsoft.rdc.application-data.sqlite') $query
     Remove-Item $tmp -Recurse -Force
     $bookmarks = if ($json) { @($json | Out-String | ConvertFrom-Json) } else { @() }
+    $rdpList = [System.Collections.Generic.List[object]]::new()
     foreach ($bm in $bookmarks) {
         if (-not $bm.host) { continue }
         $display = if ($bm.name) { $bm.name } else { $bm.host }
         $folder = if ($bm.folder) { $bm.folder } else { 'Other' }
+        $rdpList.Add([pscustomobject]@{ Folder = $folder; Name = $display; Address = $bm.host; Username = $bm.username; Gateway = $bm.gateway })
         $lines = @(
             "full address:s:$($bm.host)"
             'screen mode id:i:2'
@@ -176,6 +178,10 @@ left join ZBOOKMARKFOLDERENTITY f on f.Z_PK = b.ZBOOKMARKFOLDER
         # mstsc reads UTF-16 LE .rdp files most reliably.
         Set-Content -Path (Join-Path $target "$safeName.rdp") -Value ($lines -join "`r`n") -Encoding Unicode
         $rdpCount++
+    }
+    if ($rdpList.Count) {
+        # Plain list of every connection, readable without any tooling.
+        $rdpList | Sort-Object Folder, Name | Export-Csv (Join-Path $OutputPath 'rdp/connections.csv') -NoTypeInformation -Encoding utf8
     }
 }
 

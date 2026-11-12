@@ -635,11 +635,11 @@ function Invoke-RdpPhase {
     $source = Join-Path $script:BundleDir 'rdp'
     if (-not (Test-Path $source)) { Add-Result $p 'RDP connections' 'Skipped' 'bundle has no rdp folder'; return }
     $target = Join-Path $script:Paths.Documents 'RDP'
-    foreach ($file in Get-ChildItem $source -Recurse -Filter '*.rdp') {
+    foreach ($file in Get-ChildItem $source -Recurse -File -Include '*.rdp', '*.csv') {
         $relative = [IO.Path]::GetRelativePath($source, $file.FullName)
         Copy-ManagedFile $p ($relative -replace '\\', '/') $file.FullName (Join-Path $target $relative)
     }
-    Add-Result $p 'RDP folder' 'Manual' "open connections from $target (mstsc); passwords were not exported, tick 'Remember me' on first connect"
+    Add-Result $p 'RDP folder' 'Manual' "open connections from $target (mstsc); connections.csv lists every address. Passwords were not exported, tick 'Remember me' on first connect"
 }
 
 function Invoke-SystemPhase {

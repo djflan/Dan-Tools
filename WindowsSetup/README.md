@@ -24,7 +24,7 @@ pwsh ./Export-WorkBundle.ps1 -Groups GroupA,GroupB    # folder names under ~/Git
 - Without `-Groups` it exports every folder your git `includeIf "gitdir:..."` rules cover.
 - Linked worktrees are skipped, and SSH remotes are rewritten to HTTPS so Git Credential Manager handles auth.
 - The Copilot instruction `sqlp.instructions.md` is left out because `sqlp` is macOS-only. Change this with `-ExcludeInstruction`.
-- Saved PCs from **Windows App** become clean `.rdp` files (address, username, gateway, folder). Passwords stay in the macOS Keychain.
+- Saved PCs from **Windows App** become clean `.rdp` files (address, username, gateway, folder), plus `rdp/connections.csv`, a plain list of every address. Passwords stay in the macOS Keychain.
 
 Move the zip over a **work** channel (work OneDrive, Teams to yourself). It contains internal hostnames and emails.
 
